@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<title>Brico Scanner Bridge V2</title>
+<style>
+:root{--bg:#0b0d10;--panel:#14181d;--panel2:#0f1317;--line:#29313a;--text:#f5f7fa;--muted:#9aa5b1;--green:#36d27f;--yellow:#ffd166;--red:#ff6969}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}body{min-height:100dvh}.wrap{max-width:760px;margin:auto;padding:12px 12px 34px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.brand{font-size:18px;font-weight:900}.sub{font-size:10px;color:var(--muted);margin-top:2px}.badge{padding:6px 9px;border-radius:999px;background:#20262d;color:var(--muted);font-size:10px;font-weight:900}.badge.on{background:rgba(54,210,127,.13);color:var(--green)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:9px}.hero{text-align:center;padding:20px 14px}.active{font-size:11px;font-weight:900;letter-spacing:.08em;color:var(--green)}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:7px;box-shadow:0 0 0 5px rgba(54,210,127,.09)}.label{margin-top:16px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.last{min-height:38px;margin-top:5px;font:900 23px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}.meta{margin-top:4px;color:var(--muted);font-size:11px}.grid2{display:grid;grid-template-columns:1.45fr 1fr;gap:8px;margin-bottom:8px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:9px}button{min-height:46px;border:1px solid var(--line);border-radius:12px;background:#1a2026;color:var(--text);padding:9px 10px;font-weight:850;font-size:13px}button.primary{background:var(--green);border-color:transparent;color:#07140d}button.warn{color:var(--yellow)}button:disabled{opacity:.42}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.row+.row{margin-top:11px}.small{font-size:11px;color:var(--muted);line-height:1.4}.switch{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:750}.switch input{width:20px;height:20px;accent-color:var(--green)}input[type=range]{width:58%;accent-color:var(--green)}.status{font-size:11px;color:var(--muted);line-height:1.45}.ok{color:var(--green)}.yellow{color:var(--yellow)}.red{color:var(--red)}.summary{display:flex;justify-content:space-between;align-items:flex-end}.count{font-size:34px;font-weight:900;line-height:1}.list{display:flex;flex-direction:column;gap:7px;margin-top:10px}.item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.num,.time,.format{font-size:10px;color:var(--muted)}.code{font:800 15px/1.25 ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}.format{border:1px solid var(--line);padding:4px 6px;border-radius:999px}.sectionTitle{font-size:13px;font-weight:900;margin-bottom:10px}.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:11px}.kv div:nth-child(odd){color:var(--muted)}details{margin-top:9px}summary{font-size:11px;color:var(--muted);cursor:pointer}.remote{display:flex;gap:7px;margin-top:10px}.remote button{flex:1;min-height:40px;font-size:11px}.empty{padding:14px;text-align:center;color:var(--muted);font-size:11px}.flash{animation:flash .22s ease}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(54,210,127,.7)}100%{box-shadow:0 0 0 10px rgba(54,210,127,0)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><div class="brand">Brico Scanner</div><div class="sub" id="versionText">Bridge V2 • ładowanie…</div></div>
+    <div class="badge" id="stateBadge">WYŁĄCZONY</div>
+  </div>
+
+  <div class="grid2">
+    <button class="primary" id="startBtn">WŁĄCZ SKANER</button>
+    <button id="focusBtn">◎ FOCUS</button>
+  </div>
+
+  <section class="panel hero" id="hero">
+    <div><span class="dot"></span><span class="active" id="activeText">GOTOWY DO URUCHOMIENIA</span></div>
+    <div class="label">Ostatni kod</div>
+    <div class="last" id="lastCode">—</div>
+    <div class="meta" id="lastMeta">Brak skanów</div>
+  </section>
+
+  <div class="grid3">
+    <button id="torchBtn">LATARKA</button>
+    <button id="pauseBtn">PAUZA</button>
+    <button id="clearBtn">WYCZYŚĆ</button>
+  </div>
+
+  <section class="panel">
+    <div class="row">
+      <label class="switch"><input id="previewToggle" type="checkbox"> Pokaż kamerę</label>
+      <span class="small" id="focusState">AF: —</span>
+    </div>
+    <div class="row">
+      <span class="small">Zoom</span>
+      <input id="zoom" type="range" min="0" max="1" step="0.01" value="0">
+    </div>
+    <div class="status" id="statusText">Natywny bridge: sprawdzanie…</div>
+  </section>
+
+  <section class="panel">
+    <div class="summary">
+      <div><div class="small">Zeskanowano</div><div class="count" id="count">0</div></div>
+      <div class="small" style="text-align:right">UI i zasady są zdalne<br>APK = silnik kamery</div>
+    </div>
+    <div class="list" id="scanList"><div class="empty">Lista jest pusta.</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="sectionTitle">Konfiguracja skanera</div>
+    <div class="kv">
+      <div>Wersja config</div><div id="cfgVersion">—</div>
+      <div>Duplikat</div><div id="cfgDuplicate">—</div>
+      <div>Zniknięcie kodu</div><div id="cfgRelease">—</div>
+      <div>Focus co</div><div id="cfgFocus">—</div>
+      <div>Strefa ROI</div><div id="cfgRoi">—</div>
+      <div>Źródło</div><div id="cfgSource">—</div>
+    </div>
+    <details><summary>Formaty kodów</summary><div class="small" id="cfgFormats" style="margin-top:8px">—</div></details>
+    <div class="remote">
+      <button id="reloadConfigBtn">ODŚWIEŻ CONFIG</button>
+      <button id="reloadUiBtn">ODŚWIEŻ UI</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var bridge = window.NativeScanner || null;
+  var state = {running:false,paused:false,torch:false,focus:'idle',linearZoom:0};
+  var config = {};
+  var info = {};
+  var scans = [];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var startBtn=$('startBtn'), focusBtn=$('focusBtn'), torchBtn=$('torchBtn'), pauseBtn=$('pauseBtn');
+  var previewToggle=$('previewToggle'), zoom=$('zoom'), hero=$('hero');
+
+  function parseJson(value){
+    if(!value) return {};
+    if(typeof value === 'object') return value;
+    try{return JSON.parse(value);}catch(e){return {};}
+  }
+
+  function call(name){
+    if(!bridge || typeof bridge[name] !== 'function') return null;
+    var args = Array.prototype.slice.call(arguments,1);
+    try{return bridge[name].apply(bridge,args);}catch(e){return null;}
+  }
+
+  function renderState(){
+    $('stateBadge').textContent = state.running ? (state.paused?'PAUZA':'SKANOWANIE') : 'WYŁĄCZONY';
+    $('stateBadge').className = 'badge' + (state.running && !state.paused ? ' on' : '');
+    $('activeText').textContent = state.running ? (state.paused?'SKANOWANIE WSTRZYMANE':'SKANOWANIE AKTYWNE') : 'GOTOWY DO URUCHOMIENIA';
+    startBtn.textContent = state.running ? 'WYŁĄCZ SKANER' : 'WŁĄCZ SKANER';
+    pauseBtn.textContent = state.paused ? 'WZNÓW' : 'PAUZA';
+    torchBtn.textContent = state.torch ? 'LATARKA ON' : 'LATARKA';
+    focusBtn.disabled = !state.running;
+    torchBtn.disabled = !state.running || state.flashAvailable===false;
+    pauseBtn.disabled = !state.running;
+    zoom.disabled = !state.running;
+    if(typeof state.linearZoom === 'number') zoom.value = state.linearZoom;
+    $('focusState').textContent = 'AF: ' + (state.focus || '—');
+    $('statusText').textContent = bridge ? ('CameraX + ML Kit • ' + (state.event || 'gotowy')) : 'Bridge natywny niedostępny — ten HTML został otwarty poza APK.';
+    $('statusText').className = 'status ' + (bridge ? 'ok' : 'yellow');
+  }
+
+  function renderConfig(){
+    $('cfgVersion').textContent = config.version != null ? config.version : '—';
+    $('cfgDuplicate').textContent = config.duplicateDelayMs != null ? config.duplicateDelayMs+' ms' : '—';
+    $('cfgRelease').textContent = config.releaseDelayMs != null ? config.releaseDelayMs+' ms' : '—';
+    $('cfgFocus').textContent = config.focusIntervalMs != null ? config.focusIntervalMs+' ms' : '—';
+    var r=config.roi||{};
+    $('cfgRoi').textContent = [r.left,r.top,r.right,r.bottom].every(function(v){return typeof v==='number';}) ? (r.left+'/'+r.top+' → '+r.right+'/'+r.bottom) : '—';
+    $('cfgSource').textContent = config.source || 'current';
+    $('cfgFormats').textContent = Array.isArray(config.formats) ? config.formats.join(' • ') : '—';
+  }
+
+  function renderInfo(){
+    $('versionText').textContent = 'Bridge ' + (info.bridgeVersion||'2.0') + ' • APK ' + (info.appVersion||'—') + ' • UI ' + (info.uiSource||'—');
+  }
+
+  function renderScans(){
+    $('count').textContent=scans.length;
+    var list=$('scanList');
+    if(!scans.length){list.innerHTML='<div class="empty">Lista jest pusta.</div>';return;}
+    list.innerHTML=scans.map(function(s,i){
+      var d=new Date(s.timestamp||Date.now());
+      return '<div class="item" data-code="'+escapeHtml(s.code)+'"><div class="num">'+(scans.length-i)+'</div><div><div class="code">'+escapeHtml(s.code)+'</div><div class="time">'+d.toLocaleTimeString('pl-PL')+'</div></div><div class="format">'+escapeHtml(s.format||'BARCODE')+'</div></div>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.item'),function(el){
+      el.onclick=function(){ if(navigator.clipboard) navigator.clipboard.writeText(el.getAttribute('data-code')||''); };
+    });
+  }
+
+  function escapeHtml(v){return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
+
+  window.onNativeBarcode=function(payload){
+    var item=parseJson(payload); scans.unshift(item); if(scans.length>100) scans.length=100;
+    $('lastCode').textContent=item.code||'—';
+    $('lastMeta').textContent=(item.format||'BARCODE')+' • '+new Date(item.timestamp||Date.now()).toLocaleTimeString('pl-PL');
+    hero.classList.remove('flash'); void hero.offsetWidth; hero.classList.add('flash');
+    renderScans();
+  };
+
+  window.onNativeScannerState=function(payload){ state=parseJson(payload); renderState(); };
+  window.onNativeConfig=function(payload){ config=parseJson(payload); renderConfig(); };
+  window.onNativeInfo=function(payload){ info=parseJson(payload); renderInfo(); };
+
+  startBtn.onclick=function(){ state.running ? call('stopScanner') : call('startScanner'); };
+  focusBtn.onclick=function(){ call('focus'); };
+  torchBtn.onclick=function(){ call('setTorch',!state.torch); };
+  pauseBtn.onclick=function(){ call('setPaused',!state.paused); };
+  $('clearBtn').onclick=function(){ scans=[]; $('lastCode').textContent='—'; $('lastMeta').textContent='Brak skanów'; renderScans(); };
+  previewToggle.onchange=function(){ call('setPreviewVisible',!!previewToggle.checked); };
+  zoom.oninput=function(){ call('setZoom',Number(zoom.value)); };
+  $('reloadConfigBtn').onclick=function(){ call('reloadConfig'); };
+  $('reloadUiBtn').onclick=function(){ call('reloadUi'); };
+
+  if(bridge){
+    config=parseJson(call('getConfig')); state=parseJson(call('getState')); info=parseJson(call('getNativeInfo'));
+  }
+  renderConfig(); renderState(); renderInfo(); renderScans();
+})();
+</script>
+</body>
+</html>
