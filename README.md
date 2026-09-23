@@ -1,85 +1,111 @@
-# Brico Scanner Bridge V1
+# Brico Scanner Bridge V2
 
-Pierwszy test natywnego skanera Android dla BricoLab/Sentinela.
+V2 rozdziela aplikację na dwie warstwy:
 
-## Co testujemy
+## 1. APK = stabilny silnik Android
 
-Ta wersja nie korzysta z kamery przez Chrome.
+Natywna część odpowiada za:
 
-Używa:
+- CameraX
+- Google ML Kit Barcode Scanning
+- focus AF/AE/AWB w centrum pola
+- automatyczne ponawianie focusa
+- zoom
+- latarkę
+- analizę kodów
+- komunikację JavaScript z interfejsem
 
-- CameraX 1.6.2
-- Google ML Kit Barcode Scanning 17.3.0
-- tylnej kamery Androida
-- prawdziwego `CameraControl.startFocusAndMetering()`
-- AF + AE + AWB w centrum strefy skanowania
-- automatycznego ponawiania focusa
-- ML Kit z modelem wbudowanym w APK
-- ukrytego podglądu kamery jako trybu domyślnego
+APK nie zawiera już głównej logiki interfejsu użytkownika.
 
-## Obsługiwane kody w V1
+## 2. `web/` = zdalny interfejs i zasady
 
-- EAN-13
-- EAN-8
-- UPC-A
-- UPC-E
-- Code 128
-- Code 39
-- Code 93
-- ITF
-- Codabar
+Aplikacja przy uruchomieniu pobiera z tego repozytorium:
 
-Celowo nie włączono QR/DataMatrix, żeby przy teście sklepowym ograniczyć liczbę fałszywych trafień.
+- `web/index.html` — cały interfejs HTML/JS
+- `web/scanner-config.json` — parametry skanera
 
-## Strefa skanowania
+Dzięki temu większość zmian nie wymaga ponownego instalowania APK.
 
-ML Kit analizuje obraz, ale do listy akceptujemy wyłącznie kod, którego środek znajduje się w centralnym pasie:
+### Zmiana wyglądu / logiki HTML
 
-- X: 7%–93%
-- Y: 36%–64%
+Edytujesz:
 
-Jeżeli dwa kody są jednocześnie w strefie, wybierany jest kod najbliżej środka.
+`web/index.html`
 
-## Duplikaty
+Po ponownym otwarciu aplikacji pobierana jest aktualna wersja. W samym UI jest też przycisk `ODŚWIEŻ UI`.
 
-Ten sam kod:
+### Zmiana zasad skanera
 
-1. nie może zostać ponownie dodany wcześniej niż po 1,5 s,
-2. musi wcześniej zniknąć z obrazu na co najmniej 550 ms.
+Edytujesz:
 
-Czyli zostawienie telefonu skierowanego na jeden kod NIE powinno dodawać go co 1,5 s w nieskończoność.
+`web/scanner-config.json`
 
-## Focus
+Aktualnie zdalnie sterowane są:
 
-Domyślnie włączone jest automatyczne ponawianie focusa.
+- `duplicateDelayMs`
+- `releaseDelayMs`
+- `focusIntervalMs`
+- `autoFocus`
+- `roi.left/right/top/bottom`
+- lista formatów kodów
 
-CameraX dostaje prawdziwe:
+Przycisk `ODŚWIEŻ CONFIG` pobiera nową konfigurację bez instalacji nowego APK. Jeśli skaner był uruchomiony, bridge restartuje go, żeby również nowa lista formatów zaczęła działać.
 
-- AF
-- AE
-- AWB
-- punkt w centrum kadru
-- rozmiar punktu około 18%
+## Tryb offline
 
-Na ekranie zobaczysz wynik:
+Aplikacja stosuje kolejność:
 
-- `AF: SUCCESS ✓`
-- albo brak potwierdzenia / błąd
+1. aktualny plik z GitHuba,
+2. ostatnia poprawnie pobrana kopia w cache,
+3. awaryjny HTML i config wbudowany w APK.
 
-Przycisk `◎ FOCUS` wymusza focus ręcznie.
+Czyli utrata internetu nie blokuje podstawowego skanowania.
 
-## Kamera ukryta
+## Komunikacja HTML ↔ Android
 
-`Pokaż kamerę` jest domyślnie wyłączone.
+Android udostępnia obiekt:
 
-To NIE zatrzymuje `ImageAnalysis`, więc skanowanie działa mimo braku podglądu.
+`window.NativeScanner`
 
-Po włączeniu podglądu zobaczysz dokładną strefę skanowania.
+Najważniejsze metody:
 
-## Następny krok po teście
+- `startScanner()`
+- `stopScanner()`
+- `setPaused(boolean)`
+- `focus()`
+- `setTorch(boolean)`
+- `setZoom(0..1)`
+- `setPreviewVisible(boolean)`
+- `reloadConfig()`
+- `reloadUi()`
+- `getConfig()`
+- `getState()`
+- `getNativeInfo()`
 
-Jeżeli CameraX + ML Kit faktycznie rozwiążą problem ostrości, następna wersja będzie "bridge":
+Po odczycie Android wywołuje:
 
-HTML BricoLab/Sentinel
--> natywny CameraX/ML Kit
--> `window.onNativeBarcode(...)`
+```js
+window.onNativeBarcode({
+  code: "5901234567890",
+  format: "EAN_13",
+  timestamp: 1780000000000
+});
+```
+
+Stan kamery jest przekazywany przez:
+
+```js
+window.onNativeScannerState({...});
+```
+
+## Budowanie APK
+
+GitHub Actions buduje testowe APK. Po udanym workflow plik znajduje się w `Artifacts` jako:
+
+`BricoScanner-debug-apk`
+
+## Ważne o aktualizacji APK
+
+Obecny workflow tworzy APK typu debug. Nowy runner GitHuba może użyć innego klucza debug, więc przy zmianach natywnego APK Android może wymagać odinstalowania poprzedniej wersji.
+
+Po potwierdzeniu V2 należy zrobić jednorazowo stałe podpisywanie release przez GitHub Secrets. Wtedy również natywne aktualizacje będą instalowane nad istniejącą aplikacją.
