@@ -10,11 +10,17 @@ import java.util.List;
 
 public class ScannerConfig {
 
-    public int version = 3;
+    public int version = 4;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
     public boolean autoFocus = true;
+
+    // Poprawny EAN musi zostać odczytany tyle razy z rzędu zanim go zaakceptujemy.
+    public int validConfirmReads = 3;
+    public long validResetMs = 700L;
+
+    // Błędny checksum: po tylu identycznych odczytach sygnał błędu.
     public int invalidConfirmReads = 3;
     public long invalidResetMs = 700L;
 
@@ -41,6 +47,9 @@ public class ScannerConfig {
             config.releaseDelayMs = clampLong(root.optLong("releaseDelayMs", config.releaseDelayMs), 0L, 10000L);
             config.focusIntervalMs = clampLong(root.optLong("focusIntervalMs", config.focusIntervalMs), 500L, 30000L);
             config.autoFocus = root.optBoolean("autoFocus", config.autoFocus);
+
+            config.validConfirmReads = (int) clampLong(root.optInt("validConfirmReads", config.validConfirmReads), 1L, 10L);
+            config.validResetMs = clampLong(root.optLong("validResetMs", config.validResetMs), 150L, 5000L);
             config.invalidConfirmReads = (int) clampLong(root.optInt("invalidConfirmReads", config.invalidConfirmReads), 1L, 10L);
             config.invalidResetMs = clampLong(root.optLong("invalidResetMs", config.invalidResetMs), 200L, 5000L);
 
@@ -93,6 +102,8 @@ public class ScannerConfig {
             root.put("releaseDelayMs", releaseDelayMs);
             root.put("focusIntervalMs", focusIntervalMs);
             root.put("autoFocus", autoFocus);
+            root.put("validConfirmReads", validConfirmReads);
+            root.put("validResetMs", validResetMs);
             root.put("invalidConfirmReads", invalidConfirmReads);
             root.put("invalidResetMs", invalidResetMs);
 
