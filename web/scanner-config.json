@@ -1,9 +1,11 @@
 {
-  "version": 3,
+  "version": 4,
   "duplicateDelayMs": 1500,
   "releaseDelayMs": 550,
   "focusIntervalMs": 1800,
   "autoFocus": true,
+  "validConfirmReads": 3,
+  "validResetMs": 700,
   "invalidConfirmReads": 3,
   "invalidResetMs": 700,
   "roi": {
