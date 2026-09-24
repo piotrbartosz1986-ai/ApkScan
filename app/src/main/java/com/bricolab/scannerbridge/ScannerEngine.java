@@ -74,6 +74,12 @@ public class ScannerEngine {
     private final Map<String, Long> seenAtByCode = new HashMap<>();
     private final Map<String, Boolean> rearmedByCode = new HashMap<>();
 
+    // Potwierdzenie poprawnego EAN-u: musi być ten sam kod kilka razy z rzędu.
+    private String lastValidCandidate = null;
+    private int validSameReadCount = 0;
+    private long lastValidSeenAt = 0L;
+
+    // Potwierdzenie błędnego EAN-u przed sygnałem błędu.
     private String lastInvalidCode = null;
     private int invalidSameReadCount = 0;
     private long lastInvalidSeenAt = 0L;
@@ -105,6 +111,8 @@ public class ScannerEngine {
     public void applyConfig(ScannerConfig newConfig) {
         if (newConfig == null) return;
         this.config = newConfig;
+        resetValidTracking();
+        resetInvalidTracking();
         emitState("config_applied");
     }
 
@@ -126,6 +134,8 @@ public class ScannerEngine {
             return;
         }
 
+        resetValidTracking();
+        resetInvalidTracking();
         rebuildBarcodeScanner();
         emitState("starting");
 
@@ -185,6 +195,7 @@ public class ScannerEngine {
         torchOn = false;
         focusState = "stopped";
         busy.set(false);
+        resetValidTracking();
         resetInvalidTracking();
 
         if (cameraProvider != null) {
@@ -197,6 +208,10 @@ public class ScannerEngine {
 
     public void setPaused(boolean value) {
         paused = value;
+        if (value) {
+            resetValidTracking();
+            resetInvalidTracking();
+        }
         emitState(value ? "paused" : "resumed");
     }
 
@@ -276,6 +291,7 @@ public class ScannerEngine {
                     Barcode candidate = pickBarcode(barcodes, imageProxy, rotation);
 
                     if (candidate == null || candidate.getRawValue() == null) {
+                        maybeResetValidTracking();
                         maybeResetInvalidTracking();
                         return;
                     }
@@ -284,21 +300,24 @@ public class ScannerEngine {
                     String format = formatName(candidate.getFormat());
 
                     if (raw.isEmpty()) {
+                        maybeResetValidTracking();
                         maybeResetInvalidTracking();
                         return;
                     }
 
                     if (!("EAN_13".equals(format) || "EAN_8".equals(format))) {
+                        resetValidTracking();
                         return;
                     }
 
                     if (!isValidEan(raw, format)) {
+                        resetValidTracking();
                         registerInvalidEan(raw);
                         return;
                     }
 
                     resetInvalidTracking();
-                    acceptBarcode(raw, format);
+                    registerValidEan(raw, format);
                 })
                 .addOnCompleteListener(task -> {
                     busy.set(false);
@@ -371,6 +390,42 @@ public class ScannerEngine {
         int expectedCheck = (10 - (sum % 10)) % 10;
         int actualCheck = code.charAt(code.length() - 1) - '0';
         return expectedCheck == actualCheck;
+    }
+
+    private void registerValidEan(String code, String format) {
+        long now = SystemClock.elapsedRealtime();
+        boolean sameSeries = code.equals(lastValidCandidate) &&
+                now - lastValidSeenAt <= config.validResetMs;
+
+        if (!sameSeries) {
+            lastValidCandidate = code;
+            validSameReadCount = 1;
+        } else if (validSameReadCount < config.validConfirmReads) {
+            validSameReadCount++;
+        }
+
+        lastValidSeenAt = now;
+
+        if (validSameReadCount < config.validConfirmReads) {
+            emitState("ean_confirming");
+            return;
+        }
+
+        acceptBarcode(code, format);
+    }
+
+    private void maybeResetValidTracking() {
+        if (lastValidCandidate == null) return;
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastValidSeenAt > config.validResetMs) {
+            resetValidTracking();
+        }
+    }
+
+    private void resetValidTracking() {
+        lastValidCandidate = null;
+        validSameReadCount = 0;
+        lastValidSeenAt = 0L;
     }
 
     private void registerInvalidEan(String code) {
@@ -511,6 +566,9 @@ public class ScannerEngine {
             object.put("torch", torchOn);
             object.put("focus", focusState);
             object.put("configVersion", config.version);
+            object.put("validCandidate", lastValidCandidate == null ? "" : lastValidCandidate);
+            object.put("validReadCount", validSameReadCount);
+            object.put("validRequiredReads", config.validConfirmReads);
 
             if (camera != null) {
                 ZoomState state = camera.getCameraInfo().getZoomState().getValue();
