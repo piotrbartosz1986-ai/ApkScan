@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -50,6 +51,8 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
 
     private static final String CACHE_UI = "bridge-ui-cache.html";
     private static final String CACHE_CONFIG = "bridge-config-cache.json";
+    private static final String PREFS_NAME = "brico-scanner-bridge";
+    private static final String PREF_VOLUME_SCAN = "volume-buttons-scan";
 
     private WebView webView;
     private FrameLayout cameraContainer;
@@ -62,12 +65,16 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
     private volatile String currentConfigJson = new ScannerConfig().toJson();
     private volatile boolean uiReady = false;
     private volatile String uiSource = "starting";
+    private volatile boolean volumeButtonsScanEnabled = true;
     private boolean pendingStartAfterPermission = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        volumeButtonsScanEnabled = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(PREF_VOLUME_SCAN, true);
 
         webView = findViewById(R.id.webView);
         cameraContainer = findViewById(R.id.cameraContainer);
@@ -212,7 +219,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         connection.setUseCaches(false);
         connection.setRequestProperty("Cache-Control", "no-cache, no-store");
         connection.setRequestProperty("Pragma", "no-cache");
-        connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.1");
+        connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.2");
 
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
@@ -287,6 +294,51 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
                 new String[]{Manifest.permission.CAMERA},
                 CAMERA_PERMISSION_REQUEST
         );
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        boolean volumeKey = keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+                keyCode == KeyEvent.KEYCODE_VOLUME_DOWN;
+
+        if (volumeButtonsScanEnabled && volumeKey) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                String keyName = keyCode == KeyEvent.KEYCODE_VOLUME_UP ? "VOLUME_UP" : "VOLUME_DOWN";
+                handleHardwareScanButton(keyName);
+            }
+            return true;
+        }
+
+        return super.dispatchKeyEvent(event);
+    }
+
+    private void handleHardwareScanButton(String keyName) {
+        if (uiReady) {
+            evaluateJs(
+                    "window.onNativeHardwareScanButton && window.onNativeHardwareScanButton(" +
+                            JSONObject.quote(keyName) +
+                            ");"
+            );
+            return;
+        }
+
+        if (!scannerEngine.isRunning()) {
+            requestScannerStart();
+        } else if (scannerEngine.isPaused()) {
+            scannerEngine.setPaused(false);
+        } else {
+            scannerEngine.focusCenter(true);
+        }
+    }
+
+    private void setVolumeButtonsScanEnabled(boolean enabled) {
+        volumeButtonsScanEnabled = enabled;
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_VOLUME_SCAN, enabled)
+                .apply();
+        pushNativeInfoToWeb();
     }
 
     @Override
@@ -384,10 +436,11 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
     private String nativeInfoJson() {
         try {
             JSONObject object = new JSONObject();
-            object.put("bridgeVersion", "2.1");
+            object.put("bridgeVersion", "2.2");
             object.put("appVersion", BuildConfig.VERSION_NAME);
             object.put("uiSource", uiSource);
             object.put("remoteBase", REMOTE_BASE);
+            object.put("volumeButtonsScanEnabled", volumeButtonsScanEnabled);
             return object.toString();
         } catch (Exception ignored) {
             return "{}";
@@ -505,6 +558,16 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
             runOnUiThread(() ->
                     cameraContainer.setVisibility(visible ? View.VISIBLE : View.GONE)
             );
+        }
+
+        @JavascriptInterface
+        public void setVolumeButtonsEnabled(boolean enabled) {
+            runOnUiThread(() -> setVolumeButtonsScanEnabled(enabled));
+        }
+
+        @JavascriptInterface
+        public boolean getVolumeButtonsEnabled() {
+            return volumeButtonsScanEnabled;
         }
 
         @JavascriptInterface
