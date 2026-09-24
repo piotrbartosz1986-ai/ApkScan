@@ -8,16 +8,20 @@ import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.View;
 
+import java.lang.ref.WeakReference;
+
 public class ScanOverlayView extends View {
+
+    private static WeakReference<ScanOverlayView> activeView = new WeakReference<>(null);
 
     private final Paint dimPaint = new Paint();
     private final Paint borderPaint = new Paint();
     private final Paint linePaint = new Paint();
 
-    private float left = 0.07f;
-    private float right = 0.93f;
-    private float top = 0.325f;
-    private float bottom = 0.675f;
+    private float left = ScannerConfig.liveRoiLeft;
+    private float right = ScannerConfig.liveRoiRight;
+    private float top = ScannerConfig.liveRoiTop;
+    private float bottom = ScannerConfig.liveRoiBottom;
 
     public ScanOverlayView(Context context) {
         super(context);
@@ -30,6 +34,7 @@ public class ScanOverlayView extends View {
     }
 
     private void init() {
+        activeView = new WeakReference<>(this);
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
         // 70% przezroczystości poza ramką = 30% krycia czerni.
@@ -41,6 +46,25 @@ public class ScanOverlayView extends View {
 
         linePaint.setColor(Color.rgb(54, 210, 127));
         linePaint.setStrokeWidth(dp(1f));
+    }
+
+    public static void applyGlobalRoi(float left, float top, float right, float bottom) {
+        ScanOverlayView view = activeView.get();
+        if (view == null) return;
+
+        view.post(() -> view.setRoi(left, top, right, bottom));
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        activeView = new WeakReference<>(this);
+        setRoi(
+                ScannerConfig.liveRoiLeft,
+                ScannerConfig.liveRoiTop,
+                ScannerConfig.liveRoiRight,
+                ScannerConfig.liveRoiBottom
+        );
     }
 
     public void setRoi(float left, float top, float right, float bottom) {
