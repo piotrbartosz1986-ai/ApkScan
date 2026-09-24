@@ -10,7 +10,7 @@ import java.util.List;
 
 public class ScannerConfig {
 
-    public int version = 4;
+    public int version = 5;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
@@ -26,8 +26,8 @@ public class ScannerConfig {
 
     public float roiLeft = 0.07f;
     public float roiRight = 0.93f;
-    public float roiTop = 0.36f;
-    public float roiBottom = 0.64f;
+    public float roiTop = 0.325f;
+    public float roiBottom = 0.675f;
 
     public final List<String> formats = new ArrayList<>();
 
@@ -67,8 +67,8 @@ public class ScannerConfig {
             }
 
             if (config.roiBottom <= config.roiTop) {
-                config.roiTop = 0.36f;
-                config.roiBottom = 0.64f;
+                config.roiTop = 0.325f;
+                config.roiBottom = 0.675f;
             }
 
             JSONArray array = root.optJSONArray("formats");
