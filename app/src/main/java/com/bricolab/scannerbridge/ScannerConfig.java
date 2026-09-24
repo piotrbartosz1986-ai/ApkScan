@@ -10,7 +10,12 @@ import java.util.List;
 
 public class ScannerConfig {
 
-    public int version = 5;
+    public static volatile float liveRoiLeft = 0.07f;
+    public static volatile float liveRoiRight = 0.93f;
+    public static volatile float liveRoiTop = 0.20f;
+    public static volatile float liveRoiBottom = 0.80f;
+
+    public int version = 7;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
@@ -26,8 +31,8 @@ public class ScannerConfig {
 
     public float roiLeft = 0.07f;
     public float roiRight = 0.93f;
-    public float roiTop = 0.325f;
-    public float roiBottom = 0.675f;
+    public float roiTop = 0.20f;
+    public float roiBottom = 0.80f;
 
     public final List<String> formats = new ArrayList<>();
 
@@ -67,8 +72,8 @@ public class ScannerConfig {
             }
 
             if (config.roiBottom <= config.roiTop) {
-                config.roiTop = 0.325f;
-                config.roiBottom = 0.675f;
+                config.roiTop = 0.20f;
+                config.roiBottom = 0.80f;
             }
 
             JSONArray array = root.optJSONArray("formats");
@@ -91,7 +96,21 @@ public class ScannerConfig {
         } catch (Exception ignored) {
         }
 
+        publishRoi(config);
         return config;
+    }
+
+    private static void publishRoi(ScannerConfig config) {
+        liveRoiLeft = config.roiLeft;
+        liveRoiRight = config.roiRight;
+        liveRoiTop = config.roiTop;
+        liveRoiBottom = config.roiBottom;
+        ScanOverlayView.applyGlobalRoi(
+                config.roiLeft,
+                config.roiTop,
+                config.roiRight,
+                config.roiBottom
+        );
     }
 
     public String toJson() {
