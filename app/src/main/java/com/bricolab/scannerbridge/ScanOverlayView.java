@@ -32,7 +32,7 @@ public class ScanOverlayView extends View {
     private void init() {
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
-        dimPaint.setColor(Color.argb(145, 0, 0, 0));
+        dimPaint.setColor(Color.argb(51, 0, 0, 0));
 
         borderPaint.setColor(Color.WHITE);
         borderPaint.setStyle(Paint.Style.STROKE);
