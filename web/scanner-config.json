@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "duplicateDelayMs": 1500,
   "releaseDelayMs": 550,
   "focusIntervalMs": 1800,
@@ -11,8 +11,8 @@
   "roi": {
     "left": 0.07,
     "right": 0.93,
-    "top": 0.325,
-    "bottom": 0.675
+    "top": 0.275,
+    "bottom": 0.725
   },
   "formats": [
     "EAN_13",
