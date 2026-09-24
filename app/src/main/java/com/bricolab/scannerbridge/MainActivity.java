@@ -1,8 +1,14 @@
 package com.bricolab.scannerbridge;
 
 import android.Manifest;
+import android.content.ContentValues;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -25,6 +31,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +57,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
 
     private ScannerEngine scannerEngine;
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService fileExecutor = Executors.newSingleThreadExecutor();
 
     private volatile String currentConfigJson = new ScannerConfig().toJson();
     private volatile boolean uiReady = false;
@@ -70,9 +78,6 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         scannerEngine = new ScannerEngine(this, previewView, this);
 
         configureWebView();
-
-        // Konfiguracja i interfejs są pobierane przy każdym uruchomieniu.
-        // Brak internetu -> cache -> wersja awaryjna z APK.
         loadRemoteConfig(false);
         loadRemoteUi();
     }
@@ -207,7 +212,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         connection.setUseCaches(false);
         connection.setRequestProperty("Cache-Control", "no-cache, no-store");
         connection.setRequestProperty("Pragma", "no-cache");
-        connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.0");
+        connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.1");
 
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
@@ -379,7 +384,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
     private String nativeInfoJson() {
         try {
             JSONObject object = new JSONObject();
-            object.put("bridgeVersion", "2.0");
+            object.put("bridgeVersion", "2.1");
             object.put("appVersion", BuildConfig.VERSION_NAME);
             object.put("uiSource", uiSource);
             object.put("remoteBase", REMOTE_BASE);
@@ -387,6 +392,80 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         } catch (Exception ignored) {
             return "{}";
         }
+    }
+
+    private void saveBase64File(String requestedName, String mimeType, String base64Data) {
+        fileExecutor.execute(() -> {
+            String safeName = sanitizeFileName(requestedName);
+            String mime = (mimeType == null || mimeType.trim().isEmpty())
+                    ? "application/octet-stream"
+                    : mimeType.trim();
+
+            try {
+                byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+                String savedAs;
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, mime);
+                    values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/BricoLab");
+                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri == null) throw new IllegalStateException("Nie udało się utworzyć pliku");
+
+                    try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                        if (out == null) throw new IllegalStateException("Brak strumienia zapisu");
+                        out.write(bytes);
+                    }
+
+                    ContentValues done = new ContentValues();
+                    done.put(MediaStore.Downloads.IS_PENDING, 0);
+                    getContentResolver().update(uri, done, null, null);
+                    savedAs = "Pobrane/BricoLab/" + safeName;
+                } else {
+                    File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                    if (dir == null) dir = getFilesDir();
+                    File target = new File(dir, safeName);
+                    try (FileOutputStream out = new FileOutputStream(target)) {
+                        out.write(bytes);
+                    }
+                    savedAs = target.getAbsolutePath();
+                }
+
+                final String finalSavedAs = savedAs;
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "Zapisano: " + finalSavedAs, Toast.LENGTH_LONG).show();
+                    try {
+                        JSONObject payload = new JSONObject();
+                        payload.put("ok", true);
+                        payload.put("file", finalSavedAs);
+                        evaluateJs("window.onNativeFileSaved && window.onNativeFileSaved(" + payload + ");");
+                    } catch (Exception ignored) {
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "Błąd zapisu pliku: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                    try {
+                        JSONObject payload = new JSONObject();
+                        payload.put("ok", false);
+                        payload.put("error", String.valueOf(error.getMessage()));
+                        evaluateJs("window.onNativeFileSaved && window.onNativeFileSaved(" + payload + ");");
+                    } catch (Exception ignored) {
+                    }
+                });
+            }
+        });
+    }
+
+    private String sanitizeFileName(String name) {
+        String value = name == null ? "bricolab-export.dat" : name.trim();
+        if (value.isEmpty()) value = "bricolab-export.dat";
+        value = value.replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (value.length() > 120) value = value.substring(0, 120);
+        return value;
     }
 
     public class NativeBridge {
@@ -439,6 +518,11 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         }
 
         @JavascriptInterface
+        public void saveFile(String fileName, String mimeType, String base64Data) {
+            saveBase64File(fileName, mimeType, base64Data);
+        }
+
+        @JavascriptInterface
         public String getConfig() {
             return currentConfigJson;
         }
@@ -463,6 +547,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         }
 
         networkExecutor.shutdownNow();
+        fileExecutor.shutdownNow();
 
         if (webView != null) {
             webView.removeJavascriptInterface("NativeScanner");
