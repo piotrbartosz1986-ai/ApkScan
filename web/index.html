@@ -54,10 +54,15 @@
       <span class="small" id="focusState">AF: —</span>
     </div>
     <div class="row">
+      <label class="switch"><input id="volumeToggle" type="checkbox"> VOL+/VOL− = SKAN</label>
+      <span class="small">fizyczny spust</span>
+    </div>
+    <div class="row">
       <span class="small">Zoom</span>
       <input id="zoom" type="range" min="0" max="1" step="0.01" value="0">
     </div>
     <div class="status" id="statusText">Natywny bridge: sprawdzanie…</div>
+    <div class="hint">W trybie POJEDYNCZYM przycisk głośności działa jak spust: uruchamia/wznawia skanowanie następnego kodu. W trybie CIĄGŁYM wymusza focus. Po wyłączeniu opcji przyciski znów normalnie regulują głośność.</div>
     <div class="hint">Zapisywane są wyłącznie EAN-13 i EAN-8 z poprawną cyfrą kontrolną. Niepoprawny EAN nie trafia do listy; po 3 identycznych błędnych odczytach z rzędu aplikacja daje sygnał błędu.</div>
   </section>
 
@@ -119,7 +124,7 @@
   var singleWaiting=false;
   var storeKey='brico.scanner.items.v3';
   var $=function(id){return document.getElementById(id)};
-  var startBtn=$('startBtn'),focusBtn=$('focusBtn'),torchBtn=$('torchBtn'),pauseBtn=$('pauseBtn'),previewToggle=$('previewToggle'),zoom=$('zoom'),hero=$('hero');
+  var startBtn=$('startBtn'),focusBtn=$('focusBtn'),torchBtn=$('torchBtn'),pauseBtn=$('pauseBtn'),previewToggle=$('previewToggle'),volumeToggle=$('volumeToggle'),zoom=$('zoom'),hero=$('hero');
 
   function parseJson(v){if(!v)return{};if(typeof v==='object')return v;try{return JSON.parse(v)}catch(e){return{}}}
   function call(name){if(!bridge||typeof bridge[name]!=='function')return null;var args=[].slice.call(arguments,1);try{return bridge[name].apply(bridge,args)}catch(e){return null}}
@@ -136,6 +141,14 @@
     $('qtyAuto').classList.toggle('sel',qtyMode==='auto');
     $('qtyAsk').classList.toggle('sel',qtyMode==='ask');
     $('nextBar').classList.toggle('show',singleWaiting);
+  }
+
+  function syncVolumeToggle(){
+    if(!bridge||typeof bridge.getVolumeButtonsEnabled!=='function'){
+      volumeToggle.checked=false;volumeToggle.disabled=true;return;
+    }
+    volumeToggle.disabled=false;
+    volumeToggle.checked=!!call('getVolumeButtonsEnabled');
   }
 
   function renderState(){
@@ -164,7 +177,7 @@
     var r=config.roi||{};$('cfgRoi').textContent=[r.left,r.top,r.right,r.bottom].every(function(v){return typeof v==='number'})?(r.left+'/'+r.top+' → '+r.right+'/'+r.bottom):'—';
     $('cfgSource').textContent=config.source||'current';
   }
-  function renderInfo(){$('versionText').textContent='Bridge '+(info.bridgeVersion||'2.x')+' • APK '+(info.appVersion||'—')+' • UI '+(info.uiSource||'—')}
+  function renderInfo(){$('versionText').textContent='Bridge '+(info.bridgeVersion||'2.x')+' • APK '+(info.appVersion||'—')+' • UI '+(info.uiSource||'—');syncVolumeToggle()}
 
   function addQty(ean,format,qty,ts){
     qty=Math.max(1,Math.min(99999,parseInt(qty||1,10)||1));
@@ -193,6 +206,19 @@
   function setScannerPaused(v){if(state.running)call('setPaused',!!v)}
   function openQty(scan){pendingScan=scan;setScannerPaused(true);$('modalCode').textContent=scan.code;$('modalQty').value=1;$('qtyModal').classList.add('show');setTimeout(function(){$('modalQty').focus();$('modalQty').select()},100)}
   function closeQty(resume){$('qtyModal').classList.remove('show');pendingScan=null;if(resume&&state.running){singleWaiting=false;call('setPaused',false)}renderModes()}
+
+  window.onNativeHardwareScanButton=function(key){
+    if(pendingScan){toast('Najpierw zatwierdź ilość');return}
+    if(!state.running){singleWaiting=false;renderModes();call('startScanner');toast((key==='VOLUME_UP'?'VOL+':'VOL−')+' → start skanera');return}
+    if(scanMode==='single'){
+      singleWaiting=false;renderModes();
+      if(state.paused)call('setPaused',false);
+      setTimeout(function(){call('focus')},70);
+      return;
+    }
+    if(state.paused)call('setPaused',false);
+    call('focus');
+  };
 
   window.onNativeBarcode=function(payload){
     var x=parseJson(payload),code=String(x.code||''),format=String(x.format||'');
@@ -223,6 +249,7 @@
   pauseBtn.onclick=function(){singleWaiting=false;call('setPaused',!state.paused);renderModes()};
   $('clearBtn').onclick=function(){items=[];persist();renderItems();$('lastCode').textContent='—';$('lastMeta').textContent='Brak skanów';toast('Lista wyczyszczona')};
   previewToggle.onchange=function(){call('setPreviewVisible',!!previewToggle.checked)};
+  volumeToggle.onchange=function(){call('setVolumeButtonsEnabled',!!volumeToggle.checked);toast(volumeToggle.checked?'VOL+/VOL− sterują skanerem':'VOL+/VOL− regulują głośność')};
   zoom.oninput=function(){call('setZoom',Number(zoom.value))};
   $('reloadConfigBtn').onclick=function(){call('reloadConfig');toast('Pobieram nowe zasady…')};
   $('reloadUiBtn').onclick=function(){call('reloadUi')};
@@ -247,7 +274,7 @@
 
   restore();renderModes();renderItems();
   if(bridge){config=parseJson(call('getConfig'));state=parseJson(call('getState'));info=parseJson(call('getNativeInfo'))}
-  renderConfig();renderState();renderInfo();
+  renderConfig();renderState();renderInfo();syncVolumeToggle();
 })();
 </script>
 </body>
