@@ -16,8 +16,8 @@ public class ScanOverlayView extends View {
 
     private float left = 0.07f;
     private float right = 0.93f;
-    private float top = 0.36f;
-    private float bottom = 0.64f;
+    private float top = 0.325f;
+    private float bottom = 0.675f;
 
     public ScanOverlayView(Context context) {
         super(context);
@@ -32,14 +32,15 @@ public class ScanOverlayView extends View {
     private void init() {
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
-        dimPaint.setColor(Color.argb(51, 0, 0, 0));
+        // 70% przezroczystości poza ramką = 30% krycia czerni.
+        dimPaint.setColor(Color.argb(77, 0, 0, 0));
 
         borderPaint.setColor(Color.WHITE);
         borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setStrokeWidth(dp(2f));
+        borderPaint.setStrokeWidth(dp(1.5f));
 
         linePaint.setColor(Color.rgb(54, 210, 127));
-        linePaint.setStrokeWidth(dp(2f));
+        linePaint.setStrokeWidth(dp(1f));
     }
 
     public void setRoi(float left, float top, float right, float bottom) {
