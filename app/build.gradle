@@ -10,15 +10,27 @@ android {
         applicationId "com.bricolab.scannerbridge"
         minSdk 23
         targetSdk 36
-        versionCode 2
-        versionName "2.0-bridge"
+        versionCode 3
+        versionName "2.1-bridge"
     }
 
     buildFeatures {
         buildConfig true
     }
 
+    signingConfigs {
+        debug {
+            storeFile file('../signing/brico-dev.keystore')
+            storePassword 'bricoDev2026'
+            keyAlias 'brico-dev'
+            keyPassword 'bricoDev2026'
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -39,6 +51,5 @@ dependencies {
     implementation 'androidx.camera:camera-lifecycle:1.6.2'
     implementation 'androidx.camera:camera-view:1.6.2'
 
-    // Model skanera jest w APK, więc sam odczyt kodów działa również offline.
     implementation 'com.google.mlkit:barcode-scanning:17.3.0'
 }
