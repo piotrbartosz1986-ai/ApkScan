@@ -74,6 +74,11 @@ public class ScannerEngine {
     private final Map<String, Long> seenAtByCode = new HashMap<>();
     private final Map<String, Boolean> rearmedByCode = new HashMap<>();
 
+    private String lastInvalidCode = null;
+    private int invalidSameReadCount = 0;
+    private long lastInvalidSeenAt = 0L;
+    private boolean invalidErrorPlayed = false;
+
     private final Runnable autoFocusRunnable = new Runnable() {
         @Override
         public void run() {
@@ -100,9 +105,6 @@ public class ScannerEngine {
     public void applyConfig(ScannerConfig newConfig) {
         if (newConfig == null) return;
         this.config = newConfig;
-
-        // Parametry ROI, duplicate/release i focus są od razu używane z config.
-        // Format listy jest przebudowywany przy następnym starcie skanera.
         emitState("config_applied");
     }
 
@@ -183,6 +185,7 @@ public class ScannerEngine {
         torchOn = false;
         focusState = "stopped";
         busy.set(false);
+        resetInvalidTracking();
 
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
@@ -272,12 +275,30 @@ public class ScannerEngine {
                 .addOnSuccessListener(barcodes -> {
                     Barcode candidate = pickBarcode(barcodes, imageProxy, rotation);
 
-                    if (candidate != null && candidate.getRawValue() != null) {
-                        String raw = candidate.getRawValue().trim();
-                        if (!raw.isEmpty()) {
-                            acceptBarcode(raw, formatName(candidate.getFormat()));
-                        }
+                    if (candidate == null || candidate.getRawValue() == null) {
+                        maybeResetInvalidTracking();
+                        return;
                     }
+
+                    String raw = candidate.getRawValue().trim();
+                    String format = formatName(candidate.getFormat());
+
+                    if (raw.isEmpty()) {
+                        maybeResetInvalidTracking();
+                        return;
+                    }
+
+                    if (!("EAN_13".equals(format) || "EAN_8".equals(format))) {
+                        return;
+                    }
+
+                    if (!isValidEan(raw, format)) {
+                        registerInvalidEan(raw);
+                        return;
+                    }
+
+                    resetInvalidTracking();
+                    acceptBarcode(raw, format);
                 })
                 .addOnCompleteListener(task -> {
                     busy.set(false);
@@ -330,6 +351,65 @@ public class ScannerEngine {
         return accepted.get(0);
     }
 
+    private boolean isValidEan(String code, String format) {
+        int expectedLength = "EAN_13".equals(format) ? 13 : 8;
+        if (code.length() != expectedLength) return false;
+
+        for (int i = 0; i < code.length(); i++) {
+            if (!Character.isDigit(code.charAt(i))) return false;
+        }
+
+        int sum = 0;
+        int dataLength = code.length() - 1;
+
+        for (int i = 0; i < dataLength; i++) {
+            int digit = code.charAt(i) - '0';
+            int distanceFromCheck = dataLength - i;
+            sum += (distanceFromCheck % 2 == 1) ? digit * 3 : digit;
+        }
+
+        int expectedCheck = (10 - (sum % 10)) % 10;
+        int actualCheck = code.charAt(code.length() - 1) - '0';
+        return expectedCheck == actualCheck;
+    }
+
+    private void registerInvalidEan(String code) {
+        long now = SystemClock.elapsedRealtime();
+        boolean sameSeries = code.equals(lastInvalidCode) &&
+                now - lastInvalidSeenAt <= config.invalidResetMs;
+
+        if (!sameSeries) {
+            lastInvalidCode = code;
+            invalidSameReadCount = 1;
+            invalidErrorPlayed = false;
+        } else {
+            invalidSameReadCount++;
+        }
+
+        lastInvalidSeenAt = now;
+
+        if (!invalidErrorPlayed && invalidSameReadCount >= config.invalidConfirmReads) {
+            invalidErrorPlayed = true;
+            errorFeedback();
+            emitState("invalid_ean_checksum");
+        }
+    }
+
+    private void maybeResetInvalidTracking() {
+        if (lastInvalidCode == null) return;
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastInvalidSeenAt > config.invalidResetMs) {
+            resetInvalidTracking();
+        }
+    }
+
+    private void resetInvalidTracking() {
+        lastInvalidCode = null;
+        invalidSameReadCount = 0;
+        lastInvalidSeenAt = 0L;
+        invalidErrorPlayed = false;
+    }
+
     private synchronized void acceptBarcode(String code, String format) {
         long now = SystemClock.elapsedRealtime();
 
@@ -353,7 +433,7 @@ public class ScannerEngine {
         lastAcceptedAnyCodeAt = now;
 
         long timestamp = System.currentTimeMillis();
-        feedback();
+        successFeedback();
 
         owner.runOnUiThread(() -> listener.onBarcode(code, format, timestamp));
     }
@@ -389,7 +469,7 @@ public class ScannerEngine {
         });
     }
 
-    private void feedback() {
+    private void successFeedback() {
         try {
             Vibrator vibrator = (Vibrator) owner.getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator != null && vibrator.hasVibrator()) {
@@ -402,6 +482,23 @@ public class ScannerEngine {
             ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70);
             tone.startTone(ToneGenerator.TONE_PROP_BEEP, 70);
             handler.postDelayed(tone::release, 120L);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void errorFeedback() {
+        try {
+            Vibrator vibrator = (Vibrator) owner.getSystemService(Context.VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                vibrator.vibrate(160);
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90);
+            tone.startTone(ToneGenerator.TONE_PROP_NACK, 240);
+            handler.postDelayed(tone::release, 320L);
         } catch (Exception ignored) {
         }
     }
@@ -450,16 +547,7 @@ public class ScannerEngine {
         switch (format) {
             case Barcode.FORMAT_EAN_13: return "EAN_13";
             case Barcode.FORMAT_EAN_8: return "EAN_8";
-            case Barcode.FORMAT_UPC_A: return "UPC_A";
-            case Barcode.FORMAT_UPC_E: return "UPC_E";
-            case Barcode.FORMAT_CODE_128: return "CODE_128";
-            case Barcode.FORMAT_CODE_39: return "CODE_39";
-            case Barcode.FORMAT_CODE_93: return "CODE_93";
-            case Barcode.FORMAT_ITF: return "ITF";
-            case Barcode.FORMAT_CODABAR: return "CODABAR";
-            case Barcode.FORMAT_QR_CODE: return "QR_CODE";
-            case Barcode.FORMAT_DATA_MATRIX: return "DATA_MATRIX";
-            default: return "BARCODE";
+            default: return "OTHER";
         }
     }
 
