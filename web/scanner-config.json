@@ -1,9 +1,11 @@
 {
-  "version": 2,
+  "version": 3,
   "duplicateDelayMs": 1500,
   "releaseDelayMs": 550,
   "focusIntervalMs": 1800,
   "autoFocus": true,
+  "invalidConfirmReads": 3,
+  "invalidResetMs": 700,
   "roi": {
     "left": 0.07,
     "right": 0.93,
@@ -12,13 +14,6 @@
   },
   "formats": [
     "EAN_13",
-    "EAN_8",
-    "UPC_A",
-    "UPC_E",
-    "CODE_128",
-    "CODE_39",
-    "CODE_93",
-    "ITF",
-    "CODABAR"
+    "EAN_8"
   ]
 }
