@@ -10,11 +10,13 @@ import java.util.List;
 
 public class ScannerConfig {
 
-    public int version = 2;
+    public int version = 3;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
     public boolean autoFocus = true;
+    public int invalidConfirmReads = 3;
+    public long invalidResetMs = 700L;
 
     public float roiLeft = 0.07f;
     public float roiRight = 0.93f;
@@ -26,13 +28,6 @@ public class ScannerConfig {
     public ScannerConfig() {
         formats.add("EAN_13");
         formats.add("EAN_8");
-        formats.add("UPC_A");
-        formats.add("UPC_E");
-        formats.add("CODE_128");
-        formats.add("CODE_39");
-        formats.add("CODE_93");
-        formats.add("ITF");
-        formats.add("CODABAR");
     }
 
     public static ScannerConfig fromJson(String json) {
@@ -46,6 +41,8 @@ public class ScannerConfig {
             config.releaseDelayMs = clampLong(root.optLong("releaseDelayMs", config.releaseDelayMs), 0L, 10000L);
             config.focusIntervalMs = clampLong(root.optLong("focusIntervalMs", config.focusIntervalMs), 500L, 30000L);
             config.autoFocus = root.optBoolean("autoFocus", config.autoFocus);
+            config.invalidConfirmReads = (int) clampLong(root.optInt("invalidConfirmReads", config.invalidConfirmReads), 1L, 10L);
+            config.invalidResetMs = clampLong(root.optLong("invalidResetMs", config.invalidResetMs), 200L, 5000L);
 
             JSONObject roi = root.optJSONObject("roi");
             if (roi != null) {
@@ -71,13 +68,15 @@ public class ScannerConfig {
 
                 for (int i = 0; i < array.length(); i++) {
                     String value = array.optString(i, "").trim();
-                    if (!value.isEmpty() && toBarcodeFormat(value) != Barcode.FORMAT_UNKNOWN) {
+                    if (("EAN_13".equals(value) || "EAN_8".equals(value)) &&
+                            toBarcodeFormat(value) != Barcode.FORMAT_UNKNOWN) {
                         config.formats.add(value);
                     }
                 }
 
                 if (config.formats.isEmpty()) {
                     config.formats.add("EAN_13");
+                    config.formats.add("EAN_8");
                 }
             }
         } catch (Exception ignored) {
@@ -94,6 +93,8 @@ public class ScannerConfig {
             root.put("releaseDelayMs", releaseDelayMs);
             root.put("focusIntervalMs", focusIntervalMs);
             root.put("autoFocus", autoFocus);
+            root.put("invalidConfirmReads", invalidConfirmReads);
+            root.put("invalidResetMs", invalidResetMs);
 
             JSONObject roi = new JSONObject();
             roi.put("left", roiLeft);
@@ -119,13 +120,14 @@ public class ScannerConfig {
 
         for (String format : formats) {
             int value = toBarcodeFormat(format);
-            if (value != Barcode.FORMAT_UNKNOWN) {
+            if (value == Barcode.FORMAT_EAN_13 || value == Barcode.FORMAT_EAN_8) {
                 values.add(value);
             }
         }
 
         if (values.isEmpty()) {
             values.add(Barcode.FORMAT_EAN_13);
+            values.add(Barcode.FORMAT_EAN_8);
         }
 
         int[] output = new int[values.size()];
@@ -140,15 +142,6 @@ public class ScannerConfig {
         switch (name) {
             case "EAN_13": return Barcode.FORMAT_EAN_13;
             case "EAN_8": return Barcode.FORMAT_EAN_8;
-            case "UPC_A": return Barcode.FORMAT_UPC_A;
-            case "UPC_E": return Barcode.FORMAT_UPC_E;
-            case "CODE_128": return Barcode.FORMAT_CODE_128;
-            case "CODE_39": return Barcode.FORMAT_CODE_39;
-            case "CODE_93": return Barcode.FORMAT_CODE_93;
-            case "ITF": return Barcode.FORMAT_ITF;
-            case "CODABAR": return Barcode.FORMAT_CODABAR;
-            case "QR_CODE": return Barcode.FORMAT_QR_CODE;
-            case "DATA_MATRIX": return Barcode.FORMAT_DATA_MATRIX;
             default: return Barcode.FORMAT_UNKNOWN;
         }
     }
