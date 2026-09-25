@@ -15,11 +15,10 @@
   Promise.all([
     fetch('index-v23.html?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UI '+r.status);return r.text()}),
     fetch('upload-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UPLOAD '+r.status);return r.text()}),
-    fetch('product-auth-fix.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('PRODUCT-FETCH '+r.status);return r.text()}),
     fetch('product-data-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('PRODUCT '+r.status);return r.text()}).catch(function(){return ''})
   ]).then(function(parts){
     var html=parts[0];
-    var extensions=[parts[1],parts[2],parts[3]].filter(Boolean).map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'}).join('\n');
+    var extensions=[parts[1],parts[2]].filter(Boolean).map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'}).join('\n');
     if(html.indexOf('</body>')>=0)html=html.replace('</body>',extensions+'\n</body>');
     else html+=extensions;
     document.open();document.write(html);document.close();
