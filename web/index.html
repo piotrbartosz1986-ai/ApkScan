@@ -8,18 +8,19 @@
 <style>html,body{margin:0;background:#0b0d10;color:#f5f7fa;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.loading{padding:24px;font-weight:800}</style>
 </head>
 <body>
-<div class="loading" id="loading">Ładowanie Brico Scanner 2.4…</div>
+<div class="loading" id="loading">Ładowanie Brico Scanner 2.6…</div>
 <script>
 (function(){
   var stamp=Date.now();
   Promise.all([
     fetch('index-v23.html?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UI '+r.status);return r.text()}),
-    fetch('upload-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UPLOAD '+r.status);return r.text()})
+    fetch('upload-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UPLOAD '+r.status);return r.text()}),
+    fetch('product-data-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('PRODUCT '+r.status);return r.text()}).catch(function(){return ''})
   ]).then(function(parts){
-    var html=parts[0],ext=parts[1].replace(/<\/script/gi,'<\\/script');
-    var injected='<script>'+ext+'<\/script>';
-    if(html.indexOf('</body>')>=0)html=html.replace('</body>',injected+'\n</body>');
-    else html+=injected;
+    var html=parts[0];
+    var extensions=[parts[1],parts[2]].filter(Boolean).map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'}).join('\n');
+    if(html.indexOf('</body>')>=0)html=html.replace('</body>',extensions+'\n</body>');
+    else html+=extensions;
     document.open();document.write(html);document.close();
   }).catch(function(err){
     document.getElementById('loading').textContent='Błąd ładowania interfejsu: '+err.message;
