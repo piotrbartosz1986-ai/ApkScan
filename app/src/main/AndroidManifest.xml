@@ -9,6 +9,7 @@
         android:required="true" />
 
     <application
+        android:name=".BricoApplication"
         android:allowBackup="true"
         android:label="Brico Scanner Bridge"
         android:supportsRtl="true"
