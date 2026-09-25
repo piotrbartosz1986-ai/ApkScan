@@ -10,8 +10,8 @@ android {
         applicationId "com.bricolab.scannerbridge"
         minSdk 23
         targetSdk 36
-        versionCode 5
-        versionName "2.3-bridge"
+        versionCode 6
+        versionName "2.4-bridge"
     }
 
     buildFeatures {
