@@ -6,20 +6,29 @@ import android.webkit.WebView;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class MainActivityV25 extends MainActivity {
 
+    private static final String OVH_ACCOUNT_HOST = "gahbowq.cluster129.hosting.ovh.net";
+    private static final String OVH_TLS_HOST = "cluster129.hosting.ovh.net";
+
     private WebView uploadWebView;
     private final ExecutorService uploadExecutor = Executors.newSingleThreadExecutor();
+    private final OkHttpClient uploadClient = new OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .build();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,90 +73,79 @@ public class MainActivityV25 extends MainActivity {
     }
 
     private void performUpload(String endpoint, String token, String payloadJson) {
-        HttpURLConnection connection = null;
-
         try {
-            URL url = new URL(endpoint);
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(20000);
-            connection.setUseCaches(false);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty("Authorization", "Bearer " + token);
-            connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.5");
+            String transportEndpoint = endpoint;
+            boolean ovhTechnicalEndpoint = endpoint.startsWith("https://" + OVH_ACCOUNT_HOST + "/")
+                    || endpoint.startsWith("https://" + OVH_TLS_HOST + "/");
 
-            byte[] data = payloadJson.getBytes(StandardCharsets.UTF_8);
-            connection.setFixedLengthStreamingMode(data.length);
-
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(data);
-                output.flush();
+            if (endpoint.startsWith("https://" + OVH_ACCOUNT_HOST + "/")) {
+                transportEndpoint = "https://" + OVH_TLS_HOST + endpoint.substring(("https://" + OVH_ACCOUNT_HOST).length());
             }
 
-            int httpCode = connection.getResponseCode();
-            InputStream stream = httpCode >= 200 && httpCode < 400
-                    ? connection.getInputStream()
-                    : connection.getErrorStream();
+            MediaType jsonType = MediaType.get("application/json; charset=utf-8");
+            RequestBody body = RequestBody.create(payloadJson, jsonType);
 
-            String body = stream == null ? "" : readStream(stream).trim();
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(transportEndpoint)
+                    .post(body)
+                    .header("Accept", "application/json")
+                    .header("Authorization", "Bearer " + token)
+                    .header("User-Agent", "BricoScannerBridge/2.6");
 
-            JSONObject result = new JSONObject();
-            result.put("httpCode", httpCode);
-
-            JSONObject server = null;
-            if (!body.isEmpty()) {
-                try {
-                    server = new JSONObject(body);
-                    result.put("server", server);
-                } catch (Exception ignored) {
-                    result.put("body", body);
-                }
+            // OVH Starter exposes the account by HTTP Host, but the technical
+            // subdomain presents a certificate only for cluster129.hosting.ovh.net.
+            // Connect using the certificate-valid host and keep the account host
+            // in the HTTP Host header so OVH routes the request to this hosting.
+            if (ovhTechnicalEndpoint) {
+                requestBuilder.header("Host", OVH_ACCOUNT_HOST);
             }
 
-            boolean serverOk = server != null && server.optBoolean("ok", false);
-            boolean ok = httpCode >= 200 && httpCode < 300 && serverOk;
-            result.put("ok", ok);
+            try (Response response = uploadClient.newCall(requestBuilder.build()).execute()) {
+                int httpCode = response.code();
+                ResponseBody responseBody = response.body();
+                String responseText = responseBody == null ? "" : responseBody.string().trim();
 
-            if (!ok) {
-                String errorMessage = null;
-                if (server != null) {
-                    errorMessage = server.optString("error", "").trim();
-                }
-                if (errorMessage == null || errorMessage.isEmpty()) {
-                    if (httpCode < 200 || httpCode >= 300) {
-                        errorMessage = "HTTP " + httpCode;
-                    } else if (body.isEmpty()) {
-                        errorMessage = "Serwer zwrócił pustą odpowiedź";
-                    } else {
-                        errorMessage = "Nieprawidłowa odpowiedź serwera";
+                JSONObject result = new JSONObject();
+                result.put("httpCode", httpCode);
+                result.put("transportHost", ovhTechnicalEndpoint ? OVH_TLS_HOST : "direct");
+                result.put("routingHost", ovhTechnicalEndpoint ? OVH_ACCOUNT_HOST : "direct");
+
+                JSONObject server = null;
+                if (!responseText.isEmpty()) {
+                    try {
+                        server = new JSONObject(responseText);
+                        result.put("server", server);
+                    } catch (Exception ignored) {
+                        result.put("body", responseText);
                     }
                 }
-                result.put("error", errorMessage);
-            }
 
-            sendUploadResult(result);
+                boolean serverOk = server != null && server.optBoolean("ok", false);
+                boolean ok = httpCode >= 200 && httpCode < 300 && serverOk;
+                result.put("ok", ok);
+
+                if (!ok) {
+                    String errorMessage = null;
+                    if (server != null) {
+                        errorMessage = server.optString("error", "").trim();
+                    }
+                    if (errorMessage == null || errorMessage.isEmpty()) {
+                        if (httpCode < 200 || httpCode >= 300) {
+                            errorMessage = "HTTP " + httpCode;
+                        } else if (responseText.isEmpty()) {
+                            errorMessage = "Serwer zwrócił pustą odpowiedź";
+                        } else {
+                            errorMessage = "Nieprawidłowa odpowiedź serwera";
+                        }
+                    }
+                    result.put("error", errorMessage);
+                }
+
+                sendUploadResult(result);
+            }
         } catch (Exception error) {
             JSONObject result = errorResult(error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage()));
             sendUploadResult(result);
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
-        }
-    }
-
-    private String readStream(InputStream input) throws Exception {
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            StringBuilder output = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append('\n');
-            }
-            return output.toString();
         }
     }
 
