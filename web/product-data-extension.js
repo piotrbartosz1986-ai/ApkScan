@@ -3,7 +3,7 @@
 
   var SHOP='08042';
   var API_BASE='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/products.php?shop='+SHOP;
-  function authedUrl(meta){return API_BASE+(meta?'&meta=1':'')}
+  function apiUrl(meta){return API_BASE+(meta?'&meta=1':'')+'&_='+Date.now()}
   var DB_NAME='BricoScannerProductsV2';
   var DB_VERSION=1;
   var PRODUCT_STORE='products';
@@ -215,9 +215,9 @@
   }
 
   async function serverMeta(){
-    var res=await fetch(authedUrl(true),{cache:'no-store'});
+    var res;try{res=await fetch(apiUrl(true),{cache:'no-store',mode:'cors',credentials:'omit'})}catch(e){throw new Error('META: '+(e&&e.message?e.message:String(e))+' • origin='+(location.origin||'null'))}
     var text=await res.text(),data={};try{data=JSON.parse(text)}catch(e){}
-    if(!res.ok||!data.ok)throw new Error(data.error||('HTTP '+res.status));
+    if(!res.ok||!data.ok)throw new Error('META: '+(data.error||('HTTP '+res.status)));
     return data;
   }
 
@@ -232,15 +232,15 @@
         var remote=await serverMeta();
         if(local&&Number(local.sourceModifiedMs||0)===Number(remote.modifiedMs||0)&&Number(local.records||0)>0){databaseMeta=local;databaseReady=true;setDbBadge('BAZA: '+Number(local.records||0).toLocaleString('pl-PL'),'ok');setFoot('Baza aktualna • raport '+(local.reportDate||'?'));decorateRows();return true}
         setDbBadge('BAZA: POBIERAM','warn');setFoot('Pobieram aktualny raport produktów ('+(Number(remote.size||0)/1048576).toFixed(1)+' MB)…');
-        var res=await fetch(authedUrl(false),{cache:'no-store'});
-        if(!res.ok)throw new Error('Pobieranie XLSX: HTTP '+res.status);
+        var res;try{res=await fetch(apiUrl(false),{cache:'no-store',mode:'cors',credentials:'omit'})}catch(e){throw new Error('XLSX: '+(e&&e.message?e.message:String(e))+' • origin='+(location.origin||'null'))}
+        if(!res.ok)throw new Error('XLSX: HTTP '+res.status);
         var buffer=await res.arrayBuffer();
         await importWorkbook(buffer,remote);
         return true;
       }catch(err){
         var local2=await dbGetMeta().catch(function(){return null});
         if(local2&&Number(local2.records||0)>0){databaseMeta=local2;databaseReady=true;setDbBadge('BAZA: OFFLINE','warn');setFoot('Używam zapisanej bazy • '+(err.message||err));decorateRows();return true}
-        databaseReady=false;setDbBadge('BAZA: BŁĄD','err');setFoot('Błąd bazy: '+(err.message||String(err)));var pn=document.getElementById('bricoProductName');if(pn){pn.textContent='Błąd bazy: '+(err.message||String(err));pn.classList.add('bricoMissing')}return false;
+        databaseReady=false;setDbBadge('BAZA: BŁĄD','err');setFoot('Błąd bazy 2.9: '+(err.message||String(err)));var pn=document.getElementById('bricoProductName');if(pn){pn.textContent='Błąd bazy: '+(err.message||String(err));pn.classList.add('bricoMissing')}return false;
       }finally{syncPromise=null}
     })();
     return syncPromise;
@@ -269,29 +269,26 @@
       var mini=document.createElement('div');mini.className='bricoProdMini'+(p?'':' bricoMissing');mini.setAttribute('data-ean',ean);
       if(p)mini.innerHTML='<b>'+esc(p.name||'Produkt')+'</b><div class="pvals">Stan: '+esc(intLike(p.stock))+' • Zakup: '+esc(money(p.purchasePrice))+' • Sprzedaż: '+esc(money(p.salePrice))+'</div>';
       else mini.textContent='Brak produktu w bazie';
-      var first=row.children&&row.children[0];if(first)first.appendChild(mini);
+      var left=codeEl.parentElement;if(left)left.appendChild(mini);
     }
   }
 
-  function hookScanner(){
-    var original=window.onNativeBarcode;
-    if(typeof original!=='function')return false;
-    if(original.__bricoProductHook)return true;
-    var wrapped=function(payload){
-      original(payload);
-      try{var x=(typeof payload==='object'&&payload)?payload:JSON.parse(payload||'{}'),ean=cleanEan(x.code||'');if(ean)lookupAndRender(ean)}catch(e){}
-    };
-    wrapped.__bricoProductHook=true;window.onNativeBarcode=wrapped;
-    return true;
-  }
+  var oldBarcode=window.onNativeBarcode;
+  window.onNativeBarcode=function(payload){
+    var x=payload;if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={code:''}}}
+    var ean=cleanEan(x&&x.code||'');
+    if(typeof oldBarcode==='function')oldBarcode(payload);
+    if(ean)setTimeout(function(){lookupAndRender(ean)},0);
+  };
 
-  function install(){
-    installUi();
-    if(!hookScanner()){var tries=0,t=setInterval(function(){tries++;if(hookScanner()||tries>30)clearInterval(t)},100)}
-    var list=document.getElementById('scanList');if(list&&'MutationObserver' in window){new MutationObserver(function(){setTimeout(decorateRows,0)}).observe(list,{childList:true,subtree:true})}
-    var clear=document.getElementById('clearBtn');if(clear)clear.addEventListener('click',function(){lastRequestedEan='';setTimeout(function(){renderEmptyProduct('','Zeskanuj EAN, aby wyświetlić dane produktu.');if(databaseMeta)setFoot('Baza gotowa • raport '+(databaseMeta.reportDate||'?'))},0)});
-    syncDatabase();
-  }
+  var oldInfo=window.onNativeInfo;
+  window.onNativeInfo=function(payload){if(typeof oldInfo==='function')oldInfo(payload);setTimeout(function(){syncDatabase()},50)};
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+  var observer=new MutationObserver(function(mutations){
+    var changed=mutations.some(function(m){return m.target&&m.target.id==='scanList'||(m.target&&m.target.closest&&m.target.closest('#scanList'))});
+    if(changed&&databaseReady)setTimeout(decorateRows,0);
+  });
+
+  function boot(){installUi();var list=document.getElementById('scanList');if(list)observer.observe(list,{childList:true,subtree:true});setTimeout(syncDatabase,120)}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
