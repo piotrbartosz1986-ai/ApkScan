@@ -15,19 +15,21 @@ public class ScannerConfig {
     public static volatile float liveRoiTop = 0.20f;
     public static volatile float liveRoiBottom = 0.80f;
 
-    public int version = 7;
+    public int version = 8;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
     public boolean autoFocus = true;
 
-    // Poprawny EAN musi zostać odczytany tyle razy z rzędu zanim go zaakceptujemy.
     public int validConfirmReads = 3;
     public long validResetMs = 700L;
-
-    // Błędny checksum: po tylu identycznych odczytach sygnał błędu.
     public int invalidConfirmReads = 3;
     public long invalidResetMs = 700L;
+
+    public boolean validateEanChecksum = true;
+    public boolean padNumericTo13 = true;
+    public float extraDigitalZoomMax = 3.0f;
+    public boolean contextPreview = true;
 
     public float roiLeft = 0.07f;
     public float roiRight = 0.93f;
@@ -39,6 +41,7 @@ public class ScannerConfig {
     public ScannerConfig() {
         formats.add("EAN_13");
         formats.add("EAN_8");
+        formats.add("CODE_128");
     }
 
     public static ScannerConfig fromJson(String json) {
@@ -58,6 +61,11 @@ public class ScannerConfig {
             config.invalidConfirmReads = (int) clampLong(root.optInt("invalidConfirmReads", config.invalidConfirmReads), 1L, 10L);
             config.invalidResetMs = clampLong(root.optLong("invalidResetMs", config.invalidResetMs), 200L, 5000L);
 
+            config.validateEanChecksum = root.optBoolean("validateEanChecksum", config.validateEanChecksum);
+            config.padNumericTo13 = root.optBoolean("padNumericTo13", config.padNumericTo13);
+            config.extraDigitalZoomMax = clampFloat((float) root.optDouble("extraDigitalZoomMax", config.extraDigitalZoomMax), 1f, 5f);
+            config.contextPreview = root.optBoolean("contextPreview", config.contextPreview);
+
             JSONObject roi = root.optJSONObject("roi");
             if (roi != null) {
                 config.roiLeft = clampFloat((float) roi.optDouble("left", config.roiLeft), 0f, 0.95f);
@@ -70,7 +78,6 @@ public class ScannerConfig {
                 config.roiLeft = 0.07f;
                 config.roiRight = 0.93f;
             }
-
             if (config.roiBottom <= config.roiTop) {
                 config.roiTop = 0.20f;
                 config.roiBottom = 0.80f;
@@ -79,18 +86,16 @@ public class ScannerConfig {
             JSONArray array = root.optJSONArray("formats");
             if (array != null && array.length() > 0) {
                 config.formats.clear();
-
                 for (int i = 0; i < array.length(); i++) {
                     String value = array.optString(i, "").trim();
-                    if (("EAN_13".equals(value) || "EAN_8".equals(value)) &&
-                            toBarcodeFormat(value) != Barcode.FORMAT_UNKNOWN) {
+                    if (toBarcodeFormat(value) != Barcode.FORMAT_UNKNOWN && !config.formats.contains(value)) {
                         config.formats.add(value);
                     }
                 }
-
                 if (config.formats.isEmpty()) {
                     config.formats.add("EAN_13");
                     config.formats.add("EAN_8");
+                    config.formats.add("CODE_128");
                 }
             }
         } catch (Exception ignored) {
@@ -105,12 +110,7 @@ public class ScannerConfig {
         liveRoiRight = config.roiRight;
         liveRoiTop = config.roiTop;
         liveRoiBottom = config.roiBottom;
-        ScanOverlayView.applyGlobalRoi(
-                config.roiLeft,
-                config.roiTop,
-                config.roiRight,
-                config.roiBottom
-        );
+        ScanOverlayView.applyGlobalRoi(config.roiLeft, config.roiTop, config.roiRight, config.roiBottom);
     }
 
     public String toJson() {
@@ -125,6 +125,10 @@ public class ScannerConfig {
             root.put("validResetMs", validResetMs);
             root.put("invalidConfirmReads", invalidConfirmReads);
             root.put("invalidResetMs", invalidResetMs);
+            root.put("validateEanChecksum", validateEanChecksum);
+            root.put("padNumericTo13", padNumericTo13);
+            root.put("extraDigitalZoomMax", extraDigitalZoomMax);
+            root.put("contextPreview", contextPreview);
 
             JSONObject roi = new JSONObject();
             roi.put("left", roiLeft);
@@ -134,11 +138,8 @@ public class ScannerConfig {
             root.put("roi", roi);
 
             JSONArray formatArray = new JSONArray();
-            for (String format : formats) {
-                formatArray.put(format);
-            }
+            for (String format : formats) formatArray.put(format);
             root.put("formats", formatArray);
-
             return root.toString();
         } catch (Exception ignored) {
             return "{}";
@@ -147,24 +148,17 @@ public class ScannerConfig {
 
     public int[] barcodeFormats() {
         ArrayList<Integer> values = new ArrayList<>();
-
         for (String format : formats) {
             int value = toBarcodeFormat(format);
-            if (value == Barcode.FORMAT_EAN_13 || value == Barcode.FORMAT_EAN_8) {
-                values.add(value);
-            }
+            if (value != Barcode.FORMAT_UNKNOWN && !values.contains(value)) values.add(value);
         }
-
         if (values.isEmpty()) {
             values.add(Barcode.FORMAT_EAN_13);
             values.add(Barcode.FORMAT_EAN_8);
+            values.add(Barcode.FORMAT_CODE_128);
         }
-
         int[] output = new int[values.size()];
-        for (int i = 0; i < values.size(); i++) {
-            output[i] = values.get(i);
-        }
-
+        for (int i = 0; i < values.size(); i++) output[i] = values.get(i);
         return output;
     }
 
@@ -172,6 +166,17 @@ public class ScannerConfig {
         switch (name) {
             case "EAN_13": return Barcode.FORMAT_EAN_13;
             case "EAN_8": return Barcode.FORMAT_EAN_8;
+            case "CODE_128": return Barcode.FORMAT_CODE_128;
+            case "CODE_39": return Barcode.FORMAT_CODE_39;
+            case "CODE_93": return Barcode.FORMAT_CODE_93;
+            case "CODABAR": return Barcode.FORMAT_CODABAR;
+            case "ITF": return Barcode.FORMAT_ITF;
+            case "UPC_A": return Barcode.FORMAT_UPC_A;
+            case "UPC_E": return Barcode.FORMAT_UPC_E;
+            case "QR_CODE": return Barcode.FORMAT_QR_CODE;
+            case "DATA_MATRIX": return Barcode.FORMAT_DATA_MATRIX;
+            case "PDF417": return Barcode.FORMAT_PDF417;
+            case "AZTEC": return Barcode.FORMAT_AZTEC;
             default: return Barcode.FORMAT_UNKNOWN;
         }
     }
