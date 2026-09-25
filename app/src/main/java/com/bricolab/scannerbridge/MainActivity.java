@@ -110,6 +110,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         });
 
         webView.addJavascriptInterface(new NativeBridge(), "NativeScanner");
+        webView.addJavascriptInterface(new NativeUploadBridge(), "BricoUpload");
     }
 
     private void loadRemoteUi() {
@@ -219,7 +220,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         connection.setUseCaches(false);
         connection.setRequestProperty("Cache-Control", "no-cache, no-store");
         connection.setRequestProperty("Pragma", "no-cache");
-        connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.2");
+        connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.5");
 
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
@@ -436,11 +437,12 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
     private String nativeInfoJson() {
         try {
             JSONObject object = new JSONObject();
-            object.put("bridgeVersion", "2.2");
+            object.put("bridgeVersion", "2.5");
             object.put("appVersion", BuildConfig.VERSION_NAME);
             object.put("uiSource", uiSource);
             object.put("remoteBase", REMOTE_BASE);
             object.put("volumeButtonsScanEnabled", volumeButtonsScanEnabled);
+            object.put("nativeUpload", true);
             return object.toString();
         } catch (Exception ignored) {
             return "{}";
@@ -601,6 +603,97 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
         }
     }
 
+    public class NativeUploadBridge {
+
+        @JavascriptInterface
+        public void uploadJson(String endpoint, String token, String payloadJson) {
+            networkExecutor.execute(() -> {
+                HttpURLConnection connection = null;
+                JSONObject result = new JSONObject();
+
+                try {
+                    String safeEndpoint = endpoint == null ? "" : endpoint.trim();
+                    String safeToken = token == null ? "" : token.trim();
+                    String safePayload = payloadJson == null ? "" : payloadJson;
+
+                    if (!safeEndpoint.startsWith("https://")) {
+                        throw new IllegalArgumentException("Adres serwera musi zaczynać się od https://");
+                    }
+                    if (safeToken.isEmpty()) {
+                        throw new IllegalArgumentException("Brak klucza wysyłania");
+                    }
+                    if (safePayload.trim().isEmpty()) {
+                        throw new IllegalArgumentException("Brak danych do wysłania");
+                    }
+
+                    URL url = new URL(safeEndpoint);
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setConnectTimeout(12000);
+                    connection.setReadTimeout(12000);
+                    connection.setUseCaches(false);
+                    connection.setDoOutput(true);
+                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    connection.setRequestProperty("Accept", "application/json");
+                    connection.setRequestProperty("Authorization", "Bearer " + safeToken);
+                    connection.setRequestProperty("User-Agent", "BricoScannerBridge/2.5");
+
+                    byte[] bytes = safePayload.getBytes(StandardCharsets.UTF_8);
+                    connection.setFixedLengthStreamingMode(bytes.length);
+                    try (OutputStream output = connection.getOutputStream()) {
+                        output.write(bytes);
+                    }
+
+                    int httpCode = connection.getResponseCode();
+                    InputStream input = (httpCode >= 200 && httpCode < 400)
+                            ? connection.getInputStream()
+                            : connection.getErrorStream();
+                    String body = input == null ? "" : readStream(input).trim();
+
+                    result.put("httpCode", httpCode);
+
+                    JSONObject server = null;
+                    if (!body.isEmpty()) {
+                        try {
+                            server = new JSONObject(body);
+                            result.put("server", server);
+                        } catch (Exception ignored) {
+                            result.put("body", body);
+                        }
+                    }
+
+                    boolean ok = httpCode >= 200 && httpCode < 300 &&
+                            server != null && server.optBoolean("ok", false);
+                    result.put("ok", ok);
+
+                    if (!ok) {
+                        String message = server != null
+                                ? server.optString("error", "HTTP " + httpCode)
+                                : "HTTP " + httpCode;
+                        result.put("error", message);
+                    }
+                } catch (Exception error) {
+                    try {
+                        result.put("ok", false);
+                        result.put("error", error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage()));
+                    } catch (Exception ignored) {
+                    }
+                } finally {
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
+                }
+
+                final String responseJson = result.toString();
+                evaluateJs(
+                        "window.onNativeUploadResult && window.onNativeUploadResult(" +
+                                responseJson +
+                                ");"
+                );
+            });
+        }
+    }
+
     @Override
     protected void onDestroy() {
         uiReady = false;
@@ -614,6 +707,7 @@ public class MainActivity extends AppCompatActivity implements ScannerEngine.Lis
 
         if (webView != null) {
             webView.removeJavascriptInterface("NativeScanner");
+            webView.removeJavascriptInterface("BricoUpload");
             webView.destroy();
         }
 
