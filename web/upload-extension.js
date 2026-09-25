@@ -4,6 +4,7 @@
   var ENDPOINT_KEY='brico.upload.endpoint';
   var TOKEN_KEY='brico.upload.token';
   var DEFAULT_ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/api/upload.php';
+  var nativeTimer=null;
 
   function status(msg, ok){
     var e=document.getElementById('bricoUploadStatus');
@@ -30,6 +31,10 @@
     return (localStorage.getItem(TOKEN_KEY)||'').trim();
   }
 
+  function hasNativeUpload(){
+    return !!(window.BricoUpload && typeof window.BricoUpload.uploadJson==='function');
+  }
+
   function closeSettings(){
     var box=document.getElementById('bricoUploadSettingsBox');
     if(box)box.style.display='none';
@@ -53,8 +58,45 @@
     localStorage.setItem(ENDPOINT_KEY,endpoint);
     localStorage.setItem(TOKEN_KEY,token);
     closeSettings();
-    status('Wysyłanie skonfigurowane. Możesz wysłać listę.',true);
+    status('Wysyłanie skonfigurowane • '+(hasNativeUpload()?'JAVA APK':'FETCH'),true);
   }
+
+  function resetButton(delay){
+    var btn=document.getElementById('bricoUploadBtn');
+    setTimeout(function(){
+      if(!btn)return;
+      btn.disabled=false;
+      btn.textContent='WYŚLIJ DO GENERATORA ETYKIET';
+    },delay||2400);
+  }
+
+  function finishSuccess(data){
+    var btn=document.getElementById('bricoUploadBtn');
+    status('Wysłano '+(data.items||'?')+' pozycji / '+(data.qty||'?')+' szt.'+(data.file?' • '+data.file:''),true);
+    if(btn)btn.textContent='WYSŁANO ✓';
+    resetButton(2400);
+  }
+
+  function finishError(message){
+    var btn=document.getElementById('bricoUploadBtn');
+    status('Błąd wysyłania: '+message,false);
+    if(btn)btn.textContent='BŁĄD — SPRÓBUJ';
+    resetButton(2400);
+  }
+
+  window.onNativeUploadResult=function(result){
+    if(nativeTimer){clearTimeout(nativeTimer);nativeTimer=null;}
+    try{
+      var data=result&&result.server?result.server:{};
+      if(!result || !result.ok || !data.ok){
+        finishError((result&&result.error)||(data&&data.error)||('HTTP '+((result&&result.httpCode)||'?')));
+        return;
+      }
+      finishSuccess(data);
+    }catch(e){
+      finishError(e.message||String(e));
+    }
+  };
 
   async function send(){
     var endpoint=getEndpoint();
@@ -67,7 +109,27 @@
     var btn=document.getElementById('bricoUploadBtn');
     btn.disabled=true;
     btn.textContent='WYSYŁAM…';
-    status('Wysyłanie '+items.length+' pozycji…',null);
+    status('Wysyłanie '+items.length+' pozycji… • '+(hasNativeUpload()?'JAVA APK':'FETCH'),null);
+
+    var payload={
+      type:'LABELS',
+      device:'BricoScanner',
+      created:new Date().toISOString(),
+      items:items
+    };
+
+    if(hasNativeUpload()){
+      try{
+        window.BricoUpload.uploadJson(endpoint,token,JSON.stringify(payload));
+        nativeTimer=setTimeout(function(){
+          nativeTimer=null;
+          finishError('Brak odpowiedzi z modułu JAVA po 20 s');
+        },20000);
+      }catch(e){
+        finishError(e.message||String(e));
+      }
+      return;
+    }
 
     try{
       var res=await fetch(endpoint,{
@@ -78,30 +140,17 @@
           'Content-Type':'application/json',
           'Authorization':'Bearer '+token
         },
-        body:JSON.stringify({
-          type:'LABELS',
-          device:'BricoScanner',
-          created:new Date().toISOString(),
-          items:items
-        })
+        body:JSON.stringify(payload)
       });
 
       var text=await res.text();
       var data={};
       try{data=JSON.parse(text);}catch(e){}
       if(!res.ok || !data.ok)throw new Error(data.error||('HTTP '+res.status));
-
-      status('Wysłano '+data.items+' pozycji / '+data.qty+' szt. • '+data.file,true);
-      btn.textContent='WYSŁANO ✓';
+      finishSuccess(data);
     }catch(e){
-      status('Błąd wysyłania: '+(e.message||e),false);
-      btn.textContent='BŁĄD — SPRÓBUJ';
+      finishError(e.message||e);
     }
-
-    setTimeout(function(){
-      btn.disabled=false;
-      btn.textContent='WYŚLIJ DO GENERATORA ETYKIET';
-    },2400);
   }
 
   function install(){
@@ -126,7 +175,7 @@
     var s=document.createElement('div');
     s.id='bricoUploadStatus';
     s.className='small';
-    s.textContent=getToken()?'Wysyłanie skonfigurowane.':'Wysyłanie nie jest jeszcze skonfigurowane.';
+    s.textContent=getToken()?('Wysyłanie skonfigurowane • '+(hasNativeUpload()?'JAVA APK':'FETCH')):'Wysyłanie nie jest jeszcze skonfigurowane.';
     line.appendChild(s);
 
     var settings=document.createElement('button');
