@@ -79,23 +79,31 @@ public class MainActivityV25 extends MainActivity {
                     || endpoint.startsWith("https://" + OVH_TLS_HOST + "/");
 
             if (endpoint.startsWith("https://" + OVH_ACCOUNT_HOST + "/")) {
-                transportEndpoint = "https://" + OVH_TLS_HOST + endpoint.substring(("https://" + OVH_ACCOUNT_HOST).length());
+                transportEndpoint = "https://" + OVH_TLS_HOST
+                        + endpoint.substring(("https://" + OVH_ACCOUNT_HOST).length());
             }
 
+            // OVH shared hosting may remove the Authorization header before PHP.
+            // Send the scoped token redundantly through a custom header and inside
+            // the encrypted JSON body. The server removes _auth before saving data.
+            JSONObject payload = new JSONObject(payloadJson);
+            payload.put("_auth", token);
+
             MediaType jsonType = MediaType.get("application/json; charset=utf-8");
-            RequestBody body = RequestBody.create(payloadJson, jsonType);
+            RequestBody body = RequestBody.create(payload.toString(), jsonType);
 
             Request.Builder requestBuilder = new Request.Builder()
                     .url(transportEndpoint)
                     .post(body)
                     .header("Accept", "application/json")
                     .header("Authorization", "Bearer " + token)
-                    .header("User-Agent", "BricoScannerBridge/2.6");
+                    .header("X-Brico-Token", token)
+                    .header("User-Agent", "BricoScannerBridge/2.7");
 
-            // OVH Starter exposes the account by HTTP Host, but the technical
-            // subdomain presents a certificate only for cluster129.hosting.ovh.net.
-            // Connect using the certificate-valid host and keep the account host
-            // in the HTTP Host header so OVH routes the request to this hosting.
+            // OVH Starter exposes the account by HTTP Host, while the technical
+            // account subdomain presents a certificate only for cluster129.hosting.ovh.net.
+            // Connect with the certificate-valid hostname and use the hosting account
+            // hostname only for HTTP routing.
             if (ovhTechnicalEndpoint) {
                 requestBuilder.header("Host", OVH_ACCOUNT_HOST);
             }
