@@ -2,11 +2,9 @@
   'use strict';
 
   var SHOP='08042';
-  var API_BASE='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_products.php?shop='+SHOP;
-  var META_URL=API_BASE+'&meta=1';
-  var FILE_URL=API_BASE;
-  var TOKEN_KEY='brico.upload.token';
-  var DB_NAME='BricoScannerProductsV1';
+  var API_BASE='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/products.php?shop='+SHOP;
+  function authedUrl(meta){return API_BASE+(meta?'&meta=1':'')}
+  var DB_NAME='BricoScannerProductsV2';
   var DB_VERSION=1;
   var PRODUCT_STORE='products';
   var META_STORE='meta';
@@ -24,8 +22,6 @@
   function numOr(v,fallback){var n=Number(String(v==null?'':v).replace(',','.'));return Number.isFinite(n)?n:fallback}
   function money(v){var n=Number(v);return Number.isFinite(n)?n.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'—'}
   function intLike(v){var n=Number(String(v==null?'':v).replace(',','.'));if(Number.isFinite(n))return n.toLocaleString('pl-PL',{maximumFractionDigits:3});return String(v==null||v===''?'—':v)}
-  function token(){return (localStorage.getItem(TOKEN_KEY)||'').trim()}
-  function authHeaders(){var t=token();return t?{'X-Brico-Token':t}: {}}
 
   function installUi(){
     if(document.getElementById('bricoProductCard'))return;
@@ -219,8 +215,7 @@
   }
 
   async function serverMeta(){
-    var t=token();if(!t)throw new Error('Brak klucza BricoLab. Ustaw go w sekcji wysyłania.');
-    var res=await fetch(META_URL,{cache:'no-store',headers:authHeaders()});
+    var res=await fetch(authedUrl(true),{cache:'no-store'});
     var text=await res.text(),data={};try{data=JSON.parse(text)}catch(e){}
     if(!res.ok||!data.ok)throw new Error(data.error||('HTTP '+res.status));
     return data;
@@ -237,7 +232,7 @@
         var remote=await serverMeta();
         if(local&&Number(local.sourceModifiedMs||0)===Number(remote.modifiedMs||0)&&Number(local.records||0)>0){databaseMeta=local;databaseReady=true;setDbBadge('BAZA: '+Number(local.records||0).toLocaleString('pl-PL'),'ok');setFoot('Baza aktualna • raport '+(local.reportDate||'?'));decorateRows();return true}
         setDbBadge('BAZA: POBIERAM','warn');setFoot('Pobieram aktualny raport produktów ('+(Number(remote.size||0)/1048576).toFixed(1)+' MB)…');
-        var res=await fetch(FILE_URL,{cache:'no-store',headers:authHeaders()});
+        var res=await fetch(authedUrl(false),{cache:'no-store'});
         if(!res.ok)throw new Error('Pobieranie XLSX: HTTP '+res.status);
         var buffer=await res.arrayBuffer();
         await importWorkbook(buffer,remote);
@@ -245,7 +240,7 @@
       }catch(err){
         var local2=await dbGetMeta().catch(function(){return null});
         if(local2&&Number(local2.records||0)>0){databaseMeta=local2;databaseReady=true;setDbBadge('BAZA: OFFLINE','warn');setFoot('Używam zapisanej bazy • '+(err.message||err));decorateRows();return true}
-        databaseReady=false;setDbBadge('BAZA: BŁĄD','err');setFoot(err.message||String(err));return false;
+        databaseReady=false;setDbBadge('BAZA: BŁĄD','err');setFoot('Błąd bazy: '+(err.message||String(err)));var pn=document.getElementById('bricoProductName');if(pn){pn.textContent='Błąd bazy: '+(err.message||String(err));pn.classList.add('bricoMissing')}return false;
       }finally{syncPromise=null}
     })();
     return syncPromise;
