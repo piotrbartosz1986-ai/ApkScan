@@ -22,7 +22,7 @@ public class MainActivityV36 extends MainActivityV25 {
 
     private static final int ACTIVE_GREEN = Color.rgb(30, 125, 71);
     private static final int INACTIVE_RED = Color.rgb(168, 50, 50);
-    private static final int CONTROL_FILL_ALPHA = 77; // ~30% krycia tylko tla
+    private static final int CONTROL_FILL_ALPHA = 230; // ok. 10% przezroczystości tła
     private static final String PREFS_NAME_LOCAL = "brico-scanner-bridge";
     private static final String PREF_CONFIG_OVERRIDE_LOCAL = "scanner-config-override";
 
@@ -45,8 +45,6 @@ public class MainActivityV36 extends MainActivityV25 {
         zoomSeek = findViewById(R.id.zoomSeek);
         zoomLabel = findViewById(R.id.zoomLabel);
 
-        // The proven old base did not expose applyConfig/clearConfigOverride to JS.
-        // Replace only the JS bridge, not the camera engine or lifecycle.
         if (controlWebView != null) {
             controlWebView.removeJavascriptInterface("NativeScanner");
             controlWebView.addJavascriptInterface(new PersistentNativeBridge(), "NativeScanner");
@@ -71,7 +69,6 @@ public class MainActivityV36 extends MainActivityV25 {
                 if (running) {
                     new NativeBridge().setTorch(!torch);
                 } else {
-                    // Start through the exact same proven C path, then enable torch.
                     pendingTorchAfterStart = true;
                     triggerProvenCameraToggle();
                 }
@@ -279,10 +276,6 @@ public class MainActivityV36 extends MainActivityV25 {
         new NativeBridge().reloadConfig();
     }
 
-    /**
-     * Exact old NativeScanner API plus the two config methods missing from this
-     * proven-camera branch. All camera actions still delegate to the old bridge.
-     */
     public class PersistentNativeBridge {
         private final NativeBridge base = new NativeBridge();
 
