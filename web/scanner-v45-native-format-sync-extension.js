@@ -46,7 +46,7 @@
     var list=formatsOf(cfg);
     var code128=list.indexOf('CODE_128')>=0;
     el.style.color=code128?'var(--green)':'var(--red)';
-    el.textContent=(prefix?prefix+' • ':'')+'AKTYWNE NATYWNIE: '+(list.length?list.join(', '):'BRAK')+(code128?'':' • CODE_128 WYŁĄCZONY');
+    el.textContent=(prefix?prefix+' • ':'')+'DO LISTY: '+(list.length?list.join(', '):'BRAK')+(code128?'':' • CODE_128 WYŁĄCZONY');
   }
   function migrateCode128Once(){
     if(localStorage.getItem(MIGRATION_KEY)==='1'){showStatus();return}
