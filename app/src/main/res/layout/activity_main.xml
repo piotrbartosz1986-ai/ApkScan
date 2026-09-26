@@ -6,23 +6,89 @@
     android:background="@color/bg"
     android:orientation="vertical">
 
+    <!-- Always-visible stage. The real CameraX container inside stays GONE until START. -->
     <FrameLayout
-        android:id="@+id/cameraContainer"
+        android:id="@+id/cameraStage"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:visibility="gone">
+        android:layout_height="270dp"
+        android:background="#000000">
 
-        <androidx.camera.view.PreviewView
-            android:id="@+id/previewView"
+        <FrameLayout
+            android:id="@+id/cameraContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            app:implementationMode="performance"
-            app:scaleType="fillCenter" />
+            android:visibility="gone">
 
-        <com.bricolab.scannerbridge.ScanOverlayView
-            android:id="@+id/scanOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            <androidx.camera.view.PreviewView
+                android:id="@+id/previewView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:implementationMode="performance"
+                app:scaleType="fillCenter" />
+
+            <com.bricolab.scannerbridge.ScanOverlayView
+                android:id="@+id/scanOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
+
+        <Button
+            android:id="@+id/cameraStartOverlay"
+            android:layout_width="72dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="12dp"
+            android:layout_marginBottom="12dp"
+            android:alpha="0.35"
+            android:backgroundTint="#A83232"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text="START"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/cameraTorchOverlay"
+            android:layout_width="54dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="90dp"
+            android:layout_marginBottom="12dp"
+            android:alpha="0.35"
+            android:backgroundTint="#A83232"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text="🔦"
+            android:textColor="#FFFFFF"
+            android:textSize="19sp" />
+
+        <TextView
+            android:id="@+id/zoomOverlayLabel"
+            android:layout_width="50dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center_vertical|end"
+            android:layout_marginEnd="4dp"
+            android:translationY="-104dp"
+            android:background="#59000000"
+            android:gravity="center"
+            android:text="1.0×"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <SeekBar
+            android:id="@+id/zoomOverlaySeek"
+            android:layout_width="190dp"
+            android:layout_height="64dp"
+            android:layout_gravity="center_vertical|end"
+            android:layout_marginEnd="-59dp"
+            android:max="1000"
+            android:progress="0"
+            android:rotation="-90"
+            android:splitTrack="false" />
 
     </FrameLayout>
 
