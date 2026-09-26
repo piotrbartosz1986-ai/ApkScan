@@ -15,7 +15,7 @@ public class ScannerConfig {
     public static volatile float liveRoiTop = 0.20f;
     public static volatile float liveRoiBottom = 0.80f;
 
-    public int version = 8;
+    public int version = 9;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
@@ -30,6 +30,8 @@ public class ScannerConfig {
     public boolean padNumericTo13 = true;
     public float extraDigitalZoomMax = 3.0f;
     public boolean contextPreview = true;
+    public float contextPreviewFromZoom = 3.0f;
+    public int zoomThumbDp = 28;
 
     public float roiLeft = 0.07f;
     public float roiRight = 0.93f;
@@ -65,6 +67,8 @@ public class ScannerConfig {
             config.padNumericTo13 = root.optBoolean("padNumericTo13", config.padNumericTo13);
             config.extraDigitalZoomMax = clampFloat((float) root.optDouble("extraDigitalZoomMax", config.extraDigitalZoomMax), 1f, 5f);
             config.contextPreview = root.optBoolean("contextPreview", config.contextPreview);
+            config.contextPreviewFromZoom = clampFloat((float) root.optDouble("contextPreviewFromZoom", config.contextPreviewFromZoom), 1f, 30f);
+            config.zoomThumbDp = (int) clampLong(root.optInt("zoomThumbDp", config.zoomThumbDp), 16L, 56L);
 
             JSONObject roi = root.optJSONObject("roi");
             if (roi != null) {
@@ -129,6 +133,8 @@ public class ScannerConfig {
             root.put("padNumericTo13", padNumericTo13);
             root.put("extraDigitalZoomMax", extraDigitalZoomMax);
             root.put("contextPreview", contextPreview);
+            root.put("contextPreviewFromZoom", contextPreviewFromZoom);
+            root.put("zoomThumbDp", zoomThumbDp);
 
             JSONObject roi = new JSONObject();
             roi.put("left", roiLeft);
