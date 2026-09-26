@@ -109,6 +109,10 @@
     if(document.getElementById('bricoUploadBtn'))return;
     var exportBtn=document.getElementById('exportJsonBtn');
     if(!exportBtn)return;
+
+    var serverBtn=document.getElementById('serverConfigBtn');
+    if(serverBtn)serverBtn.style.display='none';
+
     var panel=exportBtn.parentElement.parentElement;
     var grid=exportBtn.parentElement;
 
@@ -128,7 +132,7 @@
       sec.innerHTML=''
         +'<div class="settingTitle">Połączenie z BricoLab</div>'
         +'<div class="field"><label>Adres wysyłania HTTPS</label><input id="bricoEndpointInput" type="text" autocomplete="off"></div>'
-        +'<div class="field" style="margin-top:6px"><label>Klucz wysyłania / bazy</label><input id="bricoTokenInput" type="password" autocomplete="off"></div>'
+        +'<div class="field" style="margin-top:6px"><label>Klucz wysyłania / bazy</label><input id="bricoTokenInput" type="password" autocomplete="off" style="width:100%;height:35px;border-radius:8px;border:1px solid #29313a;background:#0b0f13;color:#f5f7fa;padding:5px 7px;font-size:12px"></div>'
         +'<button id="bricoSaveSettings" type="button" class="primary" style="width:100%;margin-top:7px">ZAPISZ POŁĄCZENIE</button>';
       actions.parentNode.insertBefore(sec,actions);
       fillSettings();
