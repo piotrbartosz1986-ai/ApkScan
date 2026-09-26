@@ -11,6 +11,8 @@
   var productCache=new Map();
   var dbInfo={stale:null,reportDate:'',status:'START'};
   var metaPending=false;
+  var progressTimer=null;
+  var progressValue=1;
 
   function clean(v){return String(v==null?'':v).trim()}
   function cleanEan(v){return clean(v).replace(/\D/g,'')}
@@ -31,7 +33,7 @@
       #scanList .item.bricoLatestItem .code{font-size:17px!important;font-weight:950!important;line-height:1.08!important;letter-spacing:-.01em}\
       #scanList .item.bricoLatestItem .itemmeta{font-size:9px!important;font-weight:750}\
       .bricoPositionStatsV40{font-size:9px;color:var(--muted);margin-left:5px}\
-      #bricoDbBadgeV40{margin-left:auto;flex:0 0 auto;font-size:9px;font-weight:900;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--panel2)}\
+      #bricoDbBadgeV40{margin-left:auto;flex:0 0 auto;font-size:9px;font-weight:900;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--panel2);white-space:nowrap}\
       #bricoDbBadgeV40.ok{color:#36d27f;border-color:#285d42;background:rgba(54,210,127,.08)}\
       #bricoDbBadgeV40.warn{color:#ffd166;border-color:#66552c;background:rgba(255,209,102,.08)}\
       #bricoDbBadgeV40.err{color:#ff6969;border-color:#673434;background:rgba(255,105,105,.08)}\
@@ -52,7 +54,7 @@
     if(head&&!document.getElementById('bricoDbBadgeV40')){
       var badge=document.createElement('div');
       badge.id='bricoDbBadgeV40';
-      badge.textContent='BAZA: SPRAWDZAM';
+      badge.textContent='BAZA: SPRAWDZAM 1%';
       badge.className='warn';
       head.appendChild(badge);
     }
@@ -74,14 +76,53 @@
     el.title=title||'';
   }
 
+  function parseReportMs(value){
+    var s=clean(value);if(!s)return 0;
+    var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if(m)return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),23,59,59).getTime();
+    m=/^(?:Data\s*:\s*)?(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/i.exec(s);
+    if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||23),Number(m[5]||59),Number(m[6]||59)).getTime();
+    var d=new Date(s);return isNaN(d.getTime())?0:d.getTime();
+  }
+
+  function staleFromReportDate(value){
+    var ms=parseReportMs(value);
+    return ms?((Date.now()-ms)>24*60*60*1000):null;
+  }
+
+  function stopProgress(){
+    if(progressTimer){clearInterval(progressTimer);progressTimer=null}
+  }
+
+  function startProgress(){
+    stopProgress();
+    progressValue=1;
+    setBadge('BAZA: SPRAWDZAM '+progressValue+'%','warn');
+    progressTimer=setInterval(function(){
+      if(!metaPending){stopProgress();return}
+      if(progressValue<90){
+        progressValue=Math.min(90,progressValue+(progressValue<35?4:(progressValue<70?2:1)));
+        setBadge('BAZA: SPRAWDZAM '+progressValue+'%','warn');
+      }
+    },250);
+  }
+
   function applyDatabaseInfo(info){
     info=info||{};
-    if(typeof info.stale==='boolean')dbInfo.stale=info.stale;
-    if(info.reportDate)dbInfo.reportDate=String(info.reportDate);
+    var reportDate=clean(info.reportDate||info.reportDateRaw||'');
+    if(reportDate)dbInfo.reportDate=reportDate;
+
+    var calculated=staleFromReportDate(dbInfo.reportDate);
+    if(typeof calculated==='boolean')dbInfo.stale=calculated;
+    else if(typeof info.stale==='boolean')dbInfo.stale=info.stale;
+
+    stopProgress();
     if(dbInfo.stale===true){
-      setBadge('BAZA: NIEAKTUALNA','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+      setBadge('BAZA: NIEAKTUALNA 100%','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
     }else if(dbInfo.stale===false){
-      setBadge('BAZA: ONLINE','ok',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+      setBadge('BAZA: ONLINE 100%','ok',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+    }else{
+      setBadge('BAZA: STATUS ?','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
     }
   }
 
@@ -134,11 +175,17 @@
     var t=token();
     if(!t){setBadge('BAZA: BRAK KLUCZA','err');return}
     metaPending=true;
-    setBadge('BAZA: SPRAWDZAM','warn');
+    startProgress();
     try{
       window.BricoUpload.uploadJson(LOOKUP_URL,t,JSON.stringify({type:'PRODUCT_META',shop:SHOP,requestId:Date.now()}));
-      setTimeout(function(){if(metaPending){metaPending=false;setBadge('BAZA: STATUS ?','warn')}},8000);
-    }catch(e){metaPending=false;setBadge('BAZA: BŁĄD','err')}
+      setTimeout(function(){
+        if(metaPending){
+          metaPending=false;
+          stopProgress();
+          setBadge('BAZA: STATUS ?','warn','Serwer nie zwrócił informacji o aktualności bazy.');
+        }
+      },8000);
+    }catch(e){metaPending=false;stopProgress();setBadge('BAZA: BŁĄD','err')}
   }
 
   var previous=window.onNativeUploadResult;
@@ -147,6 +194,7 @@
 
     if(server&&server.kind==='PRODUCT_META'){
       metaPending=false;
+      stopProgress();
       if(result&&result.ok&&server.ok){
         applyDatabaseInfo(server.database||server);
       }else{
@@ -158,17 +206,18 @@
 
     if(metaPending&&server&&server.kind==='PRODUCT_LOOKUP'&&!server.ean&&server.error==='invalid_type'){
       metaPending=false;
-      setBadge('BAZA: ONLINE','ok');
+      stopProgress();
+      setBadge('BAZA: STATUS ?','warn','Endpoint bazy nie obsługuje jeszcze sprawdzania daty raportu.');
       return;
     }
 
     if(server&&server.kind==='PRODUCT_LOOKUP'){
       if(typeof previous==='function'){try{previous(result)}catch(e){}}
       metaPending=false;
+      stopProgress();
       if(server.database)applyDatabaseInfo(server.database);
       else if(typeof server.databaseStale==='boolean')applyDatabaseInfo({stale:server.databaseStale,reportDate:server.reportDate||''});
-      else if(result&&result.ok&&server.ok)setBadge('BAZA: ONLINE','ok');
-      else setBadge('BAZA: BŁĄD','err');
+      else if(!(result&&result.ok&&server.ok))setBadge('BAZA: BŁĄD','err');
 
       var ean=cleanEan(server.ean||'');
       if(ean){
