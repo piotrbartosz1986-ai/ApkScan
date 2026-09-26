@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - diagnostic-c-old-camera-current-ui-start
+      - diagnostic-d-old-camera-native-controls
 
 jobs:
   build:
@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw web testu C i numer APK
+      - name: Ustaw web testu D i numer APK
         run: |
-          sed -i 's#/ApkScan/main/web/#/ApkScan/diagnostic-c-old-camera-current-ui-start/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 92/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "diag-C-old-camera-current-ui-start"/' app/build.gradle
+          sed -i 's#/ApkScan/main/web/#/ApkScan/diagnostic-d-old-camera-native-controls/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
+          sed -i 's/versionCode 9/versionCode 93/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "diag-D-old-camera-native-controls"/' app/build.gradle
 
       - name: Java 17
         uses: actions/setup-java@v5
@@ -47,6 +47,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-DIAG-C-old-camera-current-ui-start-apk
+          name: BricoScanner-DIAG-D-native-start-torch-zoom-no-context-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
