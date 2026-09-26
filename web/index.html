@@ -42,6 +42,10 @@
     localText('scanner-v44-overlay-calibration-extension.js',true)
   ]).then(function(parts){
     var html=parts[0];
+    // Ta gałąź używa natywnego ScannerConfig v9. Dzięki temu zapis checkboxów
+    // formatów (w tym CODE_128) nie wraca do starej wersji 8.
+    html=html.replace('version:8,','version:9,');
+
     var extensions=parts.slice(1).filter(Boolean).map(function(code){
       return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>';
     }).join('\n');
