@@ -34,7 +34,8 @@
     mainText('scanner-v33-ui-extension.js',false),
     localText('scanner-v37-theme-extension.js',true),
     localText('scanner-v38-list-extension.js',true),
-    localText('scanner-v39-upload-endpoint-migration.js',true)
+    localText('scanner-v39-upload-endpoint-migration.js',true),
+    localText('scanner-v40-compact-list-extension.js',true)
   ]).then(function(parts){
     var html=parts[0];
     var extensions=parts.slice(1).filter(Boolean).map(function(code){
