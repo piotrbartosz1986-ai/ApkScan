@@ -109,7 +109,7 @@
     status('Wysyłanie '+items.length+' pozycji…',null);
 
     var listName=getListName();
-    var payload={type:'LABELS',device:'BricoScanner',created:new Date().toISOString(),name:listName,listName:listName,items:items};
+    var payload={type:'LABELS',device:'BricoScanner',created:new Date().toISOString(),name:listName,listName:listName,items:items,_auth:token};
     if(hasNativeUpload()){
       try{
         window.BricoUpload.uploadJson(endpoint,token,JSON.stringify(payload));
