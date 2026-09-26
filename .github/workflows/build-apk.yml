@@ -17,8 +17,8 @@ jobs:
       - name: Ustaw web i numer APK
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/diagnostic-d-old-camera-native-controls/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 97/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.2.8-list-refresh-icon-settings"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 98/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.2.9-native-overlay-polish"/' app/build.gradle
 
       - name: Java 17
         uses: actions/setup-java@v5
@@ -47,6 +47,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-V3.2.8-list-refresh-icon-settings-apk
+          name: BricoScanner-V3.2.9-native-overlay-polish-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
