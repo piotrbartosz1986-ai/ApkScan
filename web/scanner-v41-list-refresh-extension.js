@@ -26,8 +26,13 @@
 
   function visibleEans(){
     var out=[];
-    document.querySelectorAll('#scanList .item .code').forEach(function(el){
-      var code=ean(el.textContent);
+    document.querySelectorAll('#scanList .item').forEach(function(row){
+      var saved=clean(row.getAttribute('data-brico-ean-v40')||'');
+      var code=/^(\d{8}|\d{13})$/.test(saved)?saved:'';
+      if(!code){
+        var el=row.querySelector('.code');
+        code=ean(el?el.textContent:'');
+      }
       if(/^(\d{8}|\d{13})$/.test(code)&&out.indexOf(code)<0)out.push(code);
     });
     return out;
