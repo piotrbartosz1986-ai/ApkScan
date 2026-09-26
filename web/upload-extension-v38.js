@@ -12,6 +12,12 @@
     if(!e)return;
     e.textContent=msg;
     e.style.color=ok===true?'#36d27f':ok===false?'#ff6969':'#9aa5b1';
+    e.style.whiteSpace='normal';
+    e.style.overflow='visible';
+    e.style.textOverflow='clip';
+    e.style.fontSize=ok===false?'11px':'8px';
+    e.style.lineHeight='1.35';
+    e.style.fontWeight=ok===false?'800':'400';
   }
 
   function collectVisibleItems(){
@@ -70,16 +76,24 @@
 
   function finishError(message){
     var btn=document.getElementById('bricoUploadBtn');
-    status('Błąd: '+message,false);
-    if(btn)btn.textContent='BŁĄD — SPRÓBUJ';
-    resetButton(2400);
+    var msg=String(message||'nieznany błąd').replace(/\s+/g,' ').trim();
+    status('BŁĄD WYSYŁANIA: '+msg,false);
+    if(btn){
+      btn.textContent='BŁĄD: '+(msg.length>42?msg.slice(0,42)+'…':msg);
+      btn.disabled=false;
+    }
   }
 
   window.onNativeUploadResult=function(result){
     if(nativeTimer){clearTimeout(nativeTimer);nativeTimer=null;}
     try{
       var data=result&&result.server?result.server:{};
-      if(!result||!result.ok||!data.ok){finishError((result&&result.error)||(data&&data.error)||('HTTP '+((result&&result.httpCode)||'?')));return;}
+      if(!result||!result.ok||!data.ok){
+        var detail=(result&&result.error)||(data&&data.error)||(result&&result.body)||('HTTP '+((result&&result.httpCode)||'?'));
+        if(result&&result.httpCode&&String(detail).indexOf('HTTP ')!==0) detail='HTTP '+result.httpCode+' • '+detail;
+        finishError(detail);
+        return;
+      }
       finishSuccess(data);
     }catch(e){finishError(e.message||String(e));}
   };
@@ -107,7 +121,7 @@
     try{
       var res=await fetch(endpoint,{method:'POST',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
       var text=await res.text(),data={};try{data=JSON.parse(text)}catch(e){}
-      if(!res.ok||!data.ok)throw new Error(data.error||('HTTP '+res.status));
+      if(!res.ok||!data.ok)throw new Error((data&&data.error)||text||('HTTP '+res.status));
       finishSuccess(data);
     }catch(e){finishError(e.message||e);}
   }
@@ -128,7 +142,7 @@
 
     var s=document.createElement('div');
     s.id='bricoUploadStatus';
-    s.style.cssText='font-size:8px;color:#9aa5b1;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    s.style.cssText='font-size:8px;color:#9aa5b1;margin-top:4px;white-space:normal;overflow:visible;text-overflow:clip';
     s.textContent=getToken()?'Wysyłanie gotowe':'Klucz wysyłania ustawisz pod ⚙';
     panel.appendChild(s);
 
