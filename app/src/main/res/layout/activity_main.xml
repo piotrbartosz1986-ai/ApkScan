@@ -34,10 +34,10 @@
         <Button
             android:id="@+id/cameraScanToggle"
             android:layout_width="64dp"
-            android:layout_height="38dp"
+            android:layout_height="24dp"
             android:layout_gravity="bottom|start"
-            android:layout_marginStart="12dp"
-            android:layout_marginBottom="0dp"
+            android:layout_marginStart="3dp"
+            android:layout_marginBottom="3dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
             android:padding="0dp"
@@ -48,24 +48,24 @@
 
         <Button
             android:id="@+id/cameraTorchToggle"
-            android:layout_width="46dp"
-            android:layout_height="38dp"
+            android:layout_width="32dp"
+            android:layout_height="24dp"
             android:layout_gravity="bottom|start"
-            android:layout_marginStart="82dp"
-            android:layout_marginBottom="0dp"
+            android:layout_marginStart="70dp"
+            android:layout_marginBottom="3dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
             android:padding="0dp"
             android:text="🔦"
             android:textColor="#FFFFFF"
-            android:textSize="17sp" />
+            android:textSize="15sp" />
 
         <SeekBar
             android:id="@+id/zoomSeek"
             android:layout_width="171dp"
             android:layout_height="58dp"
             android:layout_gravity="center_vertical|end"
-            android:layout_marginEnd="-53dp"
+            android:layout_marginEnd="-48dp"
             android:alpha="0.90"
             android:max="1000"
             android:progress="0"
@@ -76,10 +76,10 @@
         <TextView
             android:id="@+id/zoomLabel"
             android:layout_width="46dp"
-            android:layout_height="24dp"
+            android:layout_height="26dp"
             android:layout_gravity="bottom|end"
-            android:layout_marginEnd="4dp"
-            android:layout_marginBottom="4dp"
+            android:layout_marginEnd="25dp"
+            android:layout_marginBottom="3dp"
             android:alpha="0.90"
             android:background="@drawable/bg_zoom_label"
             android:gravity="center"
