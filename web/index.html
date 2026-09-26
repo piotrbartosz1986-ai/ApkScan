@@ -8,30 +8,40 @@
 <style>html,body{margin:0;background:#0b0d10;color:#f5f7fa;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.loading{padding:24px;font-weight:800}</style>
 </head>
 <body>
-<div class="loading" id="loading">Ładowanie testu C…</div>
+<div class="loading" id="loading">Ładowanie Skanera — test D…</div>
 <script>
 (function(){
   var stamp=Date.now();
   var base='https://raw.githubusercontent.com/piotrbartosz1986-ai/ApkScan/main/web/';
+
   function text(name,required){
-    return fetch(base+name+'?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error(name+' '+r.status);return r.text()}).catch(function(e){if(required)throw e;return ''});
+    return fetch(base+name+'?_='+stamp,{cache:'no-store'})
+      .then(function(r){if(!r.ok)throw new Error(name+' '+r.status);return r.text()})
+      .catch(function(e){if(required)throw e;return ''});
   }
+
   Promise.all([
     text('index-v24.html',true),
     text('upload-extension.js',true),
     text('product-data-extension.js',false),
     text('scanner-v32-extension.js',false),
-    text('scanner-v33-ui-extension.js',false),
-    text('scanner-v34-camera-extension.js',false)
+    text('scanner-v33-ui-extension.js',false)
   ]).then(function(parts){
     var html=parts[0];
-    var compat="(function(){'use strict';function b(){return window.NativeScanner||null}function call(n){var x=b();if(!x||typeof x[n]!=='function')return null;try{return x[n].apply(x,[].slice.call(arguments,1))}catch(e){return null}}function state(){try{var x=call('getState');return typeof x==='string'?JSON.parse(x):(x||{})}catch(e){return {}}}function install(){if(document.getElementById('cameraStartCompatV35'))return;var top=document.querySelector('.top');if(!top)return;var bar=document.createElement('div');bar.id='cameraStartCompatBarV35';bar.style.cssText='display:grid;grid-template-columns:1fr auto;gap:6px;margin:0 0 7px;padding:0';var btn=document.createElement('button');btn.id='cameraStartCompatV35';btn.className='primary';btn.style.cssText='min-height:36px;font-size:11px;font-weight:900';var info=document.createElement('div');info.id='cameraStartCompatStateV35';info.style.cssText='display:flex;align-items:center;padding:0 8px;border:1px solid #29313a;border-radius:10px;font-size:9px;color:#9aa5b1';bar.appendChild(btn);bar.appendChild(info);top.insertAdjacentElement('afterend',bar);function render(){var s=state();var running=!!s.running;var paused=!!s.paused;btn.textContent=running?(paused?'WZNÓW SKAN':'WYŁĄCZ SKANER'):'WŁĄCZ SKANER';info.textContent=running?(paused?'PAUZA':'CAMERA ON'):'CAMERA OFF';info.style.color=running?'#36d27f':'#9aa5b1'}btn.onclick=function(){var s=state();if(!s.running){call('setPreviewVisible',true);call('startScanner')}else if(s.paused){call('setPaused',false)}else{call('stopScanner')}setTimeout(render,120);setTimeout(render,600)};var prev=window.onNativeScannerState;window.onNativeScannerState=function(payload){if(typeof prev==='function')try{prev(payload)}catch(e){};setTimeout(render,0)};render()}function boot(){setTimeout(install,30);setTimeout(install,220);setTimeout(install,700)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot()})();";
-    var extensions=[parts[1],parts[2],parts[3],parts[4],parts[5],compat].filter(Boolean).map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'}).join('\n');
+
+    var noContext="(function(){function hide(){var ids=['setContextPreview','setContextFromZoom','setDigitalZoom'];ids.forEach(function(id){var el=document.getElementById(id);if(!el)return;var row=el.closest('.check')||el.closest('.field')||el.parentElement;if(row)row.style.display='none'});var old=document.getElementById('cameraStartCompatBarV35');if(old)old.remove()}function boot(){setTimeout(hide,20);setTimeout(hide,180);setTimeout(hide,700)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();document.addEventListener('click',function(e){if(e.target&&e.target.id==='settingsBtn')setTimeout(hide,40)},true)})();";
+
+    var extensions=[parts[1],parts[2],parts[3],parts[4],noContext]
+      .filter(Boolean)
+      .map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'})
+      .join('\n');
+
     if(html.indexOf('</body>')>=0)html=html.replace('</body>',extensions+'\n</body>');
     else html+=extensions;
+
     document.open();document.write(html);document.close();
   }).catch(function(err){
-    document.getElementById('loading').textContent='Błąd ładowania testu C: '+err.message;
+    document.getElementById('loading').textContent='Błąd ładowania testu D: '+err.message;
   });
 })();
 </script>
