@@ -3,6 +3,7 @@ package com.bricolab.scannerbridge;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.SeekBar;
@@ -10,6 +11,7 @@ import android.widget.TextView;
 
 import org.json.JSONObject;
 
+import java.lang.reflect.Field;
 import java.util.Locale;
 
 /**
@@ -20,6 +22,8 @@ public class MainActivityV36 extends MainActivityV25 {
 
     private static final int ACTIVE_GREEN = Color.rgb(30, 125, 71);
     private static final int INACTIVE_RED = Color.rgb(168, 50, 50);
+    private static final String PREFS_NAME_LOCAL = "brico-scanner-bridge";
+    private static final String PREF_CONFIG_OVERRIDE_LOCAL = "scanner-config-override";
 
     private WebView controlWebView;
     private Button scanButton;
@@ -28,6 +32,7 @@ public class MainActivityV36 extends MainActivityV25 {
     private TextView zoomLabel;
     private boolean zoomTouching = false;
     private boolean pendingTorchAfterStart = false;
+    private boolean applyingStoredConfig = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,8 +44,16 @@ public class MainActivityV36 extends MainActivityV25 {
         zoomSeek = findViewById(R.id.zoomSeek);
         zoomLabel = findViewById(R.id.zoomLabel);
 
+        // The proven old base did not expose applyConfig/clearConfigOverride to JS.
+        // Replace only the JS bridge, not the camera engine or lifecycle.
+        if (controlWebView != null) {
+            controlWebView.removeJavascriptInterface("NativeScanner");
+            controlWebView.addJavascriptInterface(new PersistentNativeBridge(), "NativeScanner");
+        }
+
         installCameraControls();
         refreshControls(readState());
+        restoreConfigOverrideIfNeeded();
     }
 
     private void installCameraControls() {
@@ -110,6 +123,10 @@ public class MainActivityV36 extends MainActivityV25 {
                     new NativeBridge().setTorch(true);
                 }
 
+                if ("config_applied".equals(event) && !applyingStoredConfig) {
+                    restoreConfigOverrideIfNeeded();
+                }
+
                 refreshControls(state);
             } catch (Exception ignored) {
                 refreshControls(readState());
@@ -163,6 +180,121 @@ public class MainActivityV36 extends MainActivityV25 {
                 int progress = (int) Math.round(Math.max(0.0, Math.min(1.0, linear)) * 1000.0);
                 zoomSeek.setProgress(progress);
             }
+        }
+    }
+
+    private ScannerEngine scannerEngineReflect() {
+        try {
+            Field field = MainActivity.class.getDeclaredField("scannerEngine");
+            field.setAccessible(true);
+            return (ScannerEngine) field.get(this);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void setCurrentConfigJsonReflect(String json) {
+        try {
+            Field field = MainActivity.class.getDeclaredField("currentConfigJson");
+            field.setAccessible(true);
+            field.set(this, json);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String savedConfigOverride() {
+        return getSharedPreferences(PREFS_NAME_LOCAL, MODE_PRIVATE)
+                .getString(PREF_CONFIG_OVERRIDE_LOCAL, null);
+    }
+
+    private void restoreConfigOverrideIfNeeded() {
+        String saved = savedConfigOverride();
+        if (saved == null || saved.trim().isEmpty() || applyingStoredConfig) return;
+
+        String current = new NativeBridge().getConfig();
+        String normalizedSaved = ScannerConfig.fromJson(saved).toJson();
+        if (normalizedSaved.equals(current)) return;
+
+        applyConfigOverride(normalizedSaved, false);
+    }
+
+    private void applyConfigOverride(String json, boolean persist) {
+        if (json == null || json.trim().isEmpty()) return;
+
+        runOnUiThread(() -> {
+            if (applyingStoredConfig) return;
+            applyingStoredConfig = true;
+            try {
+                ScannerConfig config = ScannerConfig.fromJson(json);
+                String normalized = config.toJson();
+
+                if (persist) {
+                    getSharedPreferences(PREFS_NAME_LOCAL, MODE_PRIVATE)
+                            .edit()
+                            .putString(PREF_CONFIG_OVERRIDE_LOCAL, normalized)
+                            .apply();
+                }
+
+                ScannerEngine engine = scannerEngineReflect();
+                if (engine != null) {
+                    boolean wasRunning = engine.isRunning();
+                    if (wasRunning) engine.stop();
+                    engine.applyConfig(config);
+                    setCurrentConfigJsonReflect(normalized);
+                    if (wasRunning) engine.start();
+                } else {
+                    setCurrentConfigJsonReflect(normalized);
+                }
+            } finally {
+                applyingStoredConfig = false;
+            }
+        });
+    }
+
+    private void clearConfigOverridePersistent() {
+        getSharedPreferences(PREFS_NAME_LOCAL, MODE_PRIVATE)
+                .edit()
+                .remove(PREF_CONFIG_OVERRIDE_LOCAL)
+                .apply();
+        new NativeBridge().reloadConfig();
+    }
+
+    /**
+     * Exact old NativeScanner API plus the two config methods missing from this
+     * proven-camera branch. All camera actions still delegate to the old bridge.
+     */
+    public class PersistentNativeBridge {
+        private final NativeBridge base = new NativeBridge();
+
+        @JavascriptInterface public void startScanner() { base.startScanner(); }
+        @JavascriptInterface public void stopScanner() { base.stopScanner(); }
+        @JavascriptInterface public void setPaused(boolean paused) { base.setPaused(paused); }
+        @JavascriptInterface public void focus() { base.focus(); }
+        @JavascriptInterface public void setTorch(boolean enabled) { base.setTorch(enabled); }
+        @JavascriptInterface public void setZoom(double linearZoom) { base.setZoom(linearZoom); }
+        @JavascriptInterface public void setPreviewVisible(boolean visible) { base.setPreviewVisible(visible); }
+        @JavascriptInterface public void setVolumeButtonsEnabled(boolean enabled) { base.setVolumeButtonsEnabled(enabled); }
+        @JavascriptInterface public boolean getVolumeButtonsEnabled() { return base.getVolumeButtonsEnabled(); }
+        @JavascriptInterface public void reloadConfig() { base.reloadConfig(); }
+        @JavascriptInterface public void reloadUi() { base.reloadUi(); }
+        @JavascriptInterface public void saveFile(String fileName, String mimeType, String base64Data) { base.saveFile(fileName, mimeType, base64Data); }
+        @JavascriptInterface public String getState() { return base.getState(); }
+        @JavascriptInterface public String getNativeInfo() { return base.getNativeInfo(); }
+
+        @JavascriptInterface
+        public String getConfig() {
+            String saved = savedConfigOverride();
+            return saved != null && !saved.trim().isEmpty() ? saved : base.getConfig();
+        }
+
+        @JavascriptInterface
+        public void applyConfig(String json) {
+            applyConfigOverride(json, true);
+        }
+
+        @JavascriptInterface
+        public void clearConfigOverride() {
+            clearConfigOverridePersistent();
         }
     }
 }
