@@ -32,10 +32,10 @@
       #hero{display:none!important}\
       #bricoProductCard{display:none!important}\
       #scanList .bricoProdMini{display:none!important}\
-      #scanList .code{color:var(--text)!important;text-decoration:none!important;cursor:default!important}\
+      #scanList .code{color:var(--text)!important;text-decoration:none!important;cursor:default!important;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif!important;font-size:13px!important;font-weight:900!important;line-height:1.15!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}\
       #scanList .itemmeta{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.28!important}\
-      #scanList .itemmeta.bricoStaleDataV40{color:#ff6969!important;font-weight:800!important}\
-      #scanList .item.bricoLatestItem .code{font-size:17px!important;font-weight:950!important;line-height:1.08!important;letter-spacing:-.01em}\
+      #scanList .item.bricoStaleDataV40 .code,#scanList .item.bricoStaleDataV40 .itemmeta{color:#ff6969!important}\
+      #scanList .item.bricoLatestItem .code{font-size:16px!important;font-weight:950!important;line-height:1.08!important;letter-spacing:-.01em}\
       #scanList .item.bricoLatestItem .itemmeta{font-size:9px!important;font-weight:750}\
       .bricoPositionStatsV40{font-size:9px;color:var(--muted);margin-left:5px}\
       #bricoDbBadgeV40{margin-left:auto;flex:0 0 auto;font-size:9px;font-weight:900;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--panel2);white-space:nowrap}\
@@ -188,13 +188,39 @@
     return current;
   }
 
-  function productSuffix(entry){
-    if(!entry)return '';
-    if(entry.found===false)return dbInfo.stale===true?' • Brak w nieaktualnej bazie':' • Brak w bazie';
+  function timeFromBaseMeta(value){
+    var text=clean(value);
+    var m=text.match(/(?:^|•)\s*(\d{1,2}:\d{2}:\d{2})\s*(?:•|$)/);
+    return m?m[1]:'';
+  }
+
+  function rowEan(row,codeEl){
+    var saved=clean(row.getAttribute('data-brico-ean-v40')||'');
+    if(/^(\d{8}|\d{13})$/.test(saved))return saved;
+    var fromText=cleanEan(codeEl&&codeEl.textContent);
+    if(/^(\d{8}|\d{13})$/.test(fromText)){
+      row.setAttribute('data-brico-ean-v40',fromText);
+      return fromText;
+    }
+    return '';
+  }
+
+  function productTitle(entry,ean){
+    if(entry&&entry.found!==false){
+      var p=entry.product||{};
+      var name=clean(p.name||'');
+      if(name)return name;
+    }
+    return ean;
+  }
+
+  function detailLine(entry,ean,time){
+    var head=(time?time+' • ':'')+ean;
+    if(!entry)return head;
+    if(entry.found===false)return head+(dbInfo.stale===true?' • Brak w nieaktualnej bazie':' • Brak w bazie');
     var p=entry.product||{};
     var stock=qty(p.stock);if(stock!=='—')stock+=' szt';
-    var name=clean(p.name||'');
-    return ' • '+(name?name+' • ':'')+'Stan '+stock+' • Cena N. '+money(p.purchasePrice)+' • Cena Sp. '+money(p.salePrice);
+    return head+' • St. '+stock+' • C.Z. '+money(p.purchasePrice)+' • C. Sp. '+money(p.salePrice);
   }
 
   function update(){
@@ -210,12 +236,18 @@
     rows.forEach(function(row,idx){
       var codeEl=row.querySelector('.code'),meta=row.querySelector('.itemmeta');
       if(!codeEl||!meta)return;
-      var ean=cleanEan(codeEl.textContent);
+      var ean=rowEan(row,codeEl);
+      if(!ean)return;
       row.classList.toggle('bricoLatestItem',latest?ean===latest:idx===0);
       hydrateLocalProduct(ean);
       var entry=productCache.get(ean);
-      meta.textContent=baseMeta(meta)+productSuffix(entry);
-      meta.classList.toggle('bricoStaleDataV40',dbInfo.stale===true&&!!entry);
+      var originalMeta=baseMeta(meta);
+      var time=timeFromBaseMeta(originalMeta);
+      var title=productTitle(entry,ean);
+      var details=detailLine(entry,ean,time);
+      if(clean(codeEl.textContent)!==title)codeEl.textContent=title;
+      if(clean(meta.textContent)!==details)meta.textContent=details;
+      row.classList.toggle('bricoStaleDataV40',dbInfo.stale===true&&!!entry);
     });
   }
 
