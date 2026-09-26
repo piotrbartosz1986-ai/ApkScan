@@ -15,8 +15,8 @@
       html[data-brico-theme="dark"] #scanList .itemmeta .bricoSepV43{color:#c7d0d9!important}\
       #scanList .itemmeta .bricoMissingV43{color:#ff6969!important;font-weight:950!important}\
       #scanList .item.bricoLatestItem .itemmeta{font-weight:400!important}\
-      #scanList .item.bricoLatestItem .bricoLatestTopV46,#scanList .item.bricoLatestItem .bricoLatestBottomV46{display:block!important;width:100%!important}\
-      #scanList .item.bricoLatestItem .bricoLatestBottomV46{margin-top:1px!important}\
+      #scanList .item.bricoLatestItem .bricoLatestBottomV47{display:inline!important}\
+      #scanList .item.bricoLatestItem .bricoLatestBreakV47{display:block!important;content:""!important}\
     ';
     document.head.appendChild(style);
   }
@@ -58,15 +58,16 @@
     var frag=document.createDocumentFragment();
 
     if(mode==='latest' && parts.length>=3){
-      var top=document.createElement('span');
-      top.className='bricoLatestTopV46';
-      appendPart(top,parts[0]||'');
-      appendSep(top);
-      appendPart(top,parts[1]||'');
-      frag.appendChild(top);
+      appendPart(frag,parts[0]||'');
+      appendSep(frag);
+      appendPart(frag,parts[1]||'');
+
+      var br=document.createElement('br');
+      br.className='bricoLatestBreakV47';
+      frag.appendChild(br);
 
       var bottom=document.createElement('span');
-      bottom.className='bricoLatestBottomV46';
+      bottom.className='bricoLatestBottomV47';
       for(var i=2;i<parts.length;i++){
         if(i>2)appendSep(bottom);
         appendPart(bottom,parts[i]||'');
