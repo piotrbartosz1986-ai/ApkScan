@@ -2,9 +2,10 @@ package com.bricolab.scannerbridge;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.Button;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.camera.view.PreviewView;
@@ -15,14 +16,13 @@ import org.json.JSONObject;
 import java.lang.reflect.Field;
 
 /**
- * v3.2.2 camera-start diagnostic/fix layer.
- *
- * CameraX is kept stopped after Activity startup and is bound explicitly by
- * the SKAN button. This avoids startup races between permission, PreviewView,
- * remote config and the WebView. PreviewView uses COMPATIBLE (TextureView)
- * mode, which is safer with overlays and WebView on Samsung devices.
+ * v3.2.2 camera-start layer.
+ * CameraX is bound explicitly from SKAN/LATARKA after PreviewView is laid out.
  */
 public class MainActivityV33 extends MainActivityV25 {
+
+    private static final int ACTIVE_GREEN = Color.rgb(30, 125, 71);
+    private static final int INACTIVE_RED = Color.rgb(168, 50, 50);
 
     private boolean userRequestedCameraStart = false;
     private boolean pendingTorchAfterStart = false;
@@ -38,14 +38,13 @@ public class MainActivityV33 extends MainActivityV25 {
 
         installDeterministicCameraButtons();
 
-        // MainActivity historically tries to start CameraX immediately. For
-        // this build we intentionally stop that startup attempt and require
-        // one explicit SKAN press after the view is fully attached.
+        // Cancel the historical automatic startup attempt. This build starts
+        // the camera explicitly from SKAN/LATARKA after the view is attached.
         getWindow().getDecorView().postDelayed(() -> {
             if (!userRequestedCameraStart) {
                 ScannerEngine engine = scannerEngine();
                 if (engine != null) engine.stop();
-                showReadyForButton();
+                paintButtons();
             }
         }, 900L);
     }
@@ -63,7 +62,7 @@ public class MainActivityV33 extends MainActivityV25 {
                     userRequestedCameraStart = false;
                     pendingTorchAfterStart = false;
                     engine.stop();
-                    showReadyForButton();
+                    paintButtons();
                     return;
                 }
 
@@ -83,14 +82,15 @@ public class MainActivityV33 extends MainActivityV25 {
                     return;
                 }
 
-                // One press on LATARKA should be enough: start/bind the camera
-                // first and switch the torch on as soon as CameraX reports ready.
+                // One tap is enough: bind camera first, then enable torch.
                 userRequestedCameraStart = true;
                 pendingTorchAfterStart = true;
                 hardStartCamera();
                 armTorchRetry(0);
             });
         }
+
+        paintButtons();
     }
 
     private void hardStartCamera() {
@@ -107,8 +107,6 @@ public class MainActivityV33 extends MainActivityV25 {
         preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         engine.stop();
 
-        // Binding after the PreviewView has a laid-out surface avoids the black
-        // SurfaceView race seen on some Samsung/Android combinations.
         preview.post(() -> {
             preview.requestLayout();
             preview.invalidate();
@@ -117,7 +115,7 @@ public class MainActivityV33 extends MainActivityV25 {
     }
 
     private void armTorchRetry(int attempt) {
-        if (!pendingTorchAfterStart || attempt > 10) return;
+        if (!pendingTorchAfterStart || attempt > 12) return;
         getWindow().getDecorView().postDelayed(() -> {
             ScannerEngine engine = scannerEngine();
             if (engine == null || !pendingTorchAfterStart) return;
@@ -125,6 +123,7 @@ public class MainActivityV33 extends MainActivityV25 {
             if (engine.isRunning()) {
                 engine.setTorch(true);
                 pendingTorchAfterStart = false;
+                paintButtons();
             } else {
                 armTorchRetry(attempt + 1);
             }
@@ -152,7 +151,7 @@ public class MainActivityV33 extends MainActivityV25 {
             getWindow().getDecorView().postDelayed(() -> {
                 ScannerEngine engine = scannerEngine();
                 if (engine != null) engine.stop();
-                showReadyForButton();
+                paintButtons();
             }, 250L);
         }
     }
@@ -160,25 +159,37 @@ public class MainActivityV33 extends MainActivityV25 {
     @Override
     public void onState(String stateJson) {
         super.onState(stateJson);
-        try {
-            JSONObject state = new JSONObject(stateJson);
-            String event = state.optString("event", "");
-            if ("camera_error".equals(event) || "bind_error".equals(event)) {
-                TextView status = findViewById(R.id.cameraScanState);
-                if (status != null) status.setText("BŁĄD KAMERY • SKAN PONÓW");
+        runOnUiThread(() -> {
+            paintButtons();
+            try {
+                JSONObject state = new JSONObject(stateJson);
+                if (pendingTorchAfterStart && state.optBoolean("running", false)) {
+                    armTorchRetry(0);
+                }
+            } catch (Exception ignored) {
             }
-            if (pendingTorchAfterStart && state.optBoolean("running", false)) {
-                armTorchRetry(0);
-            }
-        } catch (Exception ignored) {
-        }
+        });
     }
 
-    private void showReadyForButton() {
-        TextView status = findViewById(R.id.cameraScanState);
+    private void paintButtons() {
+        ScannerEngine engine = scannerEngine();
         Button scan = findViewById(R.id.cameraScanToggle);
-        if (status != null) status.setText("NACIŚNIJ SKAN");
-        if (scan != null) scan.setText("SKAN");
+        Button torch = findViewById(R.id.cameraTorchToggle);
+        if (engine == null) return;
+
+        boolean scanOn = engine.isRunning() && !engine.isPaused();
+        boolean torchOn = engine.isTorchOn();
+
+        if (scan != null) {
+            scan.setText(scanOn ? "STOP" : "SKAN");
+            scan.setBackgroundTintList(ColorStateList.valueOf(scanOn ? ACTIVE_GREEN : INACTIVE_RED));
+            scan.setAlpha(0.82f);
+        }
+        if (torch != null) {
+            torch.setText("🔦");
+            torch.setBackgroundTintList(ColorStateList.valueOf(torchOn ? ACTIVE_GREEN : INACTIVE_RED));
+            torch.setAlpha(0.82f);
+        }
     }
 
     private ScannerEngine scannerEngine() {
