@@ -76,6 +76,20 @@
       html[data-brico-theme="light"] .modal{background:rgba(24,33,43,.38)!important}\
       html[data-brico-theme="light"] .modalTop{background:rgba(255,255,255,.97)!important;border-color:var(--line)!important}\
       html[data-brico-theme="light"] .tech,html[data-brico-theme="light"] .settingTitle,html[data-brico-theme="light"] .field label,html[data-brico-theme="light"] .heroLabel,html[data-brico-theme="light"] .lastMeta,html[data-brico-theme="light"] .listStats,html[data-brico-theme="light"] .empty,html[data-brico-theme="light"] .infoDetails summary,html[data-brico-theme="light"] .infoDetails div{color:var(--muted)!important}\
+      html[data-brico-theme="light"] .bricoProductCard{background:#ffffff!important;border-color:#d2d9e1!important}\
+      html[data-brico-theme="light"] .bricoProductTitle{color:#7a8794!important}\
+      html[data-brico-theme="light"] .bricoProductName{color:#18212b!important}\
+      html[data-brico-theme="light"] .bricoMetric{background:#f4f6f8!important;border-color:#d6dde5!important}\
+      html[data-brico-theme="light"] .bricoMetric span{color:#697786!important}\
+      html[data-brico-theme="light"] .bricoMetric b{color:#18212b!important}\
+      html[data-brico-theme="light"] .bricoProductFoot{color:#697786!important}\
+      html[data-brico-theme="light"] .bricoProdMini{color:#344250!important;border-color:#d6dde5!important}\
+      html[data-brico-theme="light"] .bricoProdMini b{color:#18212b!important}\
+      html[data-brico-theme="light"] .bricoProdMini .pvals{color:#697786!important}\
+      html[data-brico-theme="light"] .bricoDbBadge{background:rgba(0,0,0,.50)!important;border-color:rgba(0,0,0,.58)!important;color:#f3f5f7!important}\
+      html[data-brico-theme="light"] .bricoDbBadge.ok{background:rgba(0,0,0,.50)!important;border-color:#16864a!important;color:#5ee39a!important}\
+      html[data-brico-theme="light"] .bricoDbBadge.warn{background:rgba(0,0,0,.50)!important;border-color:#9a7400!important;color:#ffd76a!important}\
+      html[data-brico-theme="light"] .bricoDbBadge.err{background:rgba(0,0,0,.50)!important;border-color:#b43b43!important;color:#ff7b82!important}\
     ';
     document.head.appendChild(style);
   }
