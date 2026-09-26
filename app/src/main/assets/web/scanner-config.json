@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 8,
   "duplicateDelayMs": 1500,
   "releaseDelayMs": 550,
   "focusIntervalMs": 1800,
@@ -8,14 +8,19 @@
   "validResetMs": 700,
   "invalidConfirmReads": 3,
   "invalidResetMs": 700,
+  "validateEanChecksum": true,
+  "padNumericTo13": true,
+  "extraDigitalZoomMax": 3.0,
+  "contextPreview": true,
   "roi": {
     "left": 0.07,
     "right": 0.93,
-    "top": 0.325,
-    "bottom": 0.675
+    "top": 0.20,
+    "bottom": 0.80
   },
   "formats": [
     "EAN_13",
-    "EAN_8"
+    "EAN_8",
+    "CODE_128"
   ]
 }
