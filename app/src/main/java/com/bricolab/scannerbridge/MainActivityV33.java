@@ -4,8 +4,12 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.SeekBar;
 
 import androidx.annotation.NonNull;
 import androidx.camera.view.PreviewView;
@@ -17,7 +21,7 @@ import java.lang.reflect.Field;
 
 /**
  * v3.2.2 camera-start layer.
- * CameraX is bound explicitly from SKAN/LATARKA after PreviewView is laid out.
+ * CameraX is bound explicitly from START/LATARKA after PreviewView is laid out.
  */
 public class MainActivityV33 extends MainActivityV25 {
 
@@ -37,9 +41,8 @@ public class MainActivityV33 extends MainActivityV25 {
         if (contextPreview != null) contextPreview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
         installDeterministicCameraButtons();
+        applyZoomThumbStyle();
 
-        // Cancel the historical automatic startup attempt. This build starts
-        // the camera explicitly from SKAN/LATARKA after the view is attached.
         getWindow().getDecorView().postDelayed(() -> {
             if (!userRequestedCameraStart) {
                 ScannerEngine engine = scannerEngine();
@@ -82,7 +85,6 @@ public class MainActivityV33 extends MainActivityV25 {
                     return;
                 }
 
-                // One tap is enough: bind camera first, then enable torch.
                 userRequestedCameraStart = true;
                 pendingTorchAfterStart = true;
                 hardStartCamera();
@@ -161,6 +163,7 @@ public class MainActivityV33 extends MainActivityV25 {
         super.onState(stateJson);
         runOnUiThread(() -> {
             paintButtons();
+            applyZoomThumbStyle();
             try {
                 JSONObject state = new JSONObject(stateJson);
                 if (pendingTorchAfterStart && state.optBoolean("running", false)) {
@@ -169,6 +172,43 @@ public class MainActivityV33 extends MainActivityV25 {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    @Override
+    void onNativeZoomState(float hardwareZoom, float digitalZoom, float combinedZoom) {
+        super.onNativeZoomState(hardwareZoom, digitalZoom, combinedZoom);
+
+        ScannerEngine engine = scannerEngine();
+        FrameLayout contextBox = findViewById(R.id.contextPreviewBox);
+        if (engine == null || contextBox == null) return;
+
+        ScannerConfig config = engine.getConfig();
+        float totalZoom = hardwareZoom * digitalZoom;
+        boolean supported = false;
+        try {
+            supported = new JSONObject(engine.stateJson()).optBoolean("contextPreviewSupported", false);
+        } catch (Exception ignored) {
+        }
+
+        boolean show = config.contextPreview && supported && totalZoom >= config.contextPreviewFromZoom;
+        contextBox.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    private void applyZoomThumbStyle() {
+        ScannerEngine engine = scannerEngine();
+        SeekBar seek = findViewById(R.id.zoomSeek);
+        if (engine == null || seek == null) return;
+
+        int dp = Math.max(16, Math.min(56, engine.getConfig().zoomThumbDp));
+        int px = Math.max(1, Math.round(dp * getResources().getDisplayMetrics().density));
+
+        GradientDrawable thumb = new GradientDrawable();
+        thumb.setShape(GradientDrawable.OVAL);
+        thumb.setColor(Color.WHITE);
+        thumb.setStroke(Math.max(1, px / 12), Color.argb(180, 20, 24, 29));
+        thumb.setSize(px, px);
+        seek.setThumb(thumb);
+        seek.setThumbOffset(px / 2);
     }
 
     private void paintButtons() {
@@ -181,14 +221,14 @@ public class MainActivityV33 extends MainActivityV25 {
         boolean torchOn = engine.isTorchOn();
 
         if (scan != null) {
-            scan.setText(scanOn ? "STOP" : "SKAN");
+            scan.setText(scanOn ? "STOP" : "START");
             scan.setBackgroundTintList(ColorStateList.valueOf(scanOn ? ACTIVE_GREEN : INACTIVE_RED));
-            scan.setAlpha(0.82f);
+            scan.setAlpha(0.35f);
         }
         if (torch != null) {
             torch.setText("🔦");
             torch.setBackgroundTintList(ColorStateList.valueOf(torchOn ? ACTIVE_GREEN : INACTIVE_RED));
-            torch.setAlpha(0.82f);
+            torch.setAlpha(0.35f);
         }
     }
 
