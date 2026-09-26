@@ -8,9 +8,10 @@
   var PRODUCT_STORE='products';
   var META_STORE='meta';
   var META_KEY='current';
+  var STALE_MS=24*60*60*1000;
   var scheduled=false;
   var dbPromise=null;
-  var dbStatus={ready:false,stale:false,reportDate:'',source:'START'};
+  var dbStatus={ready:false,stale:false,reportDate:'',source:'START',modifiedMs:0};
 
   function clean(v){return String(v==null?'':v).trim()}
   function money(v){var n=Number(v);return Number.isFinite(n)?n.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'—'}
@@ -65,18 +66,24 @@
   function sourceBadge(){return document.getElementById('bricoDbBadge')}
 
   function parseReportDate(value){
-    var s=clean(value);if(!s)return null;
+    var s=clean(value);if(!s)return 0;
     var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-    if(m)return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
+    if(m){var d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),23,59,59);return d.getTime()}
     m=/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/.exec(s);
-    if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
-    var d=new Date(s);return isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    if(m){var d2=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),23,59,59);return d2.getTime()}
+    var d3=new Date(s);return isNaN(d3.getTime())?0:d3.getTime();
   }
 
-  function isStaleDate(value){
-    var d=parseReportDate(value);if(!d)return true;
-    var now=new Date();
-    return d.getFullYear()!==now.getFullYear()||d.getMonth()!==now.getMonth()||d.getDate()!==now.getDate();
+  function metaModifiedMs(meta){
+    if(!meta)return 0;
+    var ms=Number(meta.sourceModifiedMs||meta.modifiedMs||0);
+    if(Number.isFinite(ms)&&ms>0)return ms;
+    return parseReportDate(meta.reportDate||'');
+  }
+
+  function isStaleMeta(meta){
+    var ms=metaModifiedMs(meta);
+    return !!ms&&(Date.now()-ms>STALE_MS);
   }
 
   function openDb(){
@@ -115,12 +122,14 @@
     var meta=await getMeta();
     dbStatus.ready=!!meta;
     dbStatus.reportDate=meta&&meta.reportDate?clean(meta.reportDate):'';
-    dbStatus.stale=dbStatus.ready&&isStaleDate(dbStatus.reportDate);
+    dbStatus.modifiedMs=metaModifiedMs(meta);
+    dbStatus.stale=dbStatus.ready&&isStaleMeta(meta);
     dbStatus.source=sourceText;
 
     ensureHeaderBits();
     var dst=document.getElementById('bricoDbBadgeV40');if(!dst)return;
-    dst.title=dbStatus.reportDate?'Raport: '+dbStatus.reportDate:'';
+    var ageH=dbStatus.modifiedMs?Math.max(0,Math.floor((Date.now()-dbStatus.modifiedMs)/3600000)):null;
+    dst.title=(dbStatus.reportDate?'Raport: '+dbStatus.reportDate:'')+(ageH!=null?((dbStatus.reportDate?' • ':'')+'wiek pliku: '+ageH+' h'):'');
 
     if(dbStatus.ready&&dbStatus.stale){dst.textContent='BAZA: NIEAKTUALNA';dst.className='warn';return}
     if(dbStatus.ready&&sourceText.indexOf('OFFLINE')>=0){dst.textContent='BAZA: OFFLINE';dst.className='warn';return}
@@ -169,7 +178,7 @@
     if(!codeEl||!meta)return;
     var ean=clean(codeEl.textContent).replace(/\D/g,'');
     if(!/^(\d{8}|\d{13})$/.test(ean))return;
-    var dataKey=ean+'|'+(dbStatus.reportDate||'?');
+    var dataKey=ean+'|'+(dbStatus.reportDate||'?')+'|'+(dbStatus.stale?'stale':'fresh');
     if(row.getAttribute('data-brico-product-key-v40')===dataKey)return;
     row.setAttribute('data-brico-product-key-v40',dataKey);
     var p=await getProduct(ean);
