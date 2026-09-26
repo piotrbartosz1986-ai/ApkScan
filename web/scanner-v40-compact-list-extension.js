@@ -217,10 +217,10 @@
   function detailLine(entry,ean,time){
     var head=(time?time+'|':'')+ean;
     if(!entry)return head;
-    if(entry.found===false)return head+(dbInfo.stale===true?'|Brak w nieaktualnej bazie':'|Brak w bazie');
+    if(entry.found===false)return head+'|\u200B'+(dbInfo.stale===true?'Brak w nieaktualnej bazie':'Brak w bazie');
     var p=entry.product||{};
     var stock=qty(p.stock);
-    return head+'|St. '+stock+'|C.Z. '+money(p.purchasePrice)+'|C. Sp. '+money(p.salePrice);
+    return head+'|\u200BSt. '+stock+'|C.Z. '+money(p.purchasePrice)+'|C. Sp. '+money(p.salePrice);
   }
 
   function update(){
@@ -246,12 +246,17 @@
       var title=productTitle(entry,ean);
       var details=detailLine(entry,ean,time);
       if(clean(codeEl.textContent)!==title)codeEl.textContent=title;
-      if(clean(meta.textContent)!==details)meta.textContent=details;
+      if(meta.textContent!==details)meta.textContent=details;
       row.classList.toggle('bricoStaleDataV40',dbInfo.stale===true&&!!entry);
     });
   }
 
-  function schedule(){if(scheduled)return;scheduled=true;setTimeout(update,0)}
+  function schedule(){
+    if(scheduled)return;
+    scheduled=true;
+    if(typeof queueMicrotask==='function')queueMicrotask(update);
+    else Promise.resolve().then(update);
+  }
 
   function requestMeta(){
     if(metaPending)return;
