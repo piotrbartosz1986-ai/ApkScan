@@ -23,63 +23,48 @@
     }).filter(function(x){return /^(\d{8}|\d{13})$/.test(x[0]);});
   }
 
-  function getEndpoint(){
-    return (localStorage.getItem(ENDPOINT_KEY)||DEFAULT_ENDPOINT).trim();
-  }
+  function getEndpoint(){return (localStorage.getItem(ENDPOINT_KEY)||DEFAULT_ENDPOINT).trim()}
+  function getToken(){return (localStorage.getItem(TOKEN_KEY)||'').trim()}
+  function hasNativeUpload(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJson==='function')}
 
-  function getToken(){
-    return (localStorage.getItem(TOKEN_KEY)||'').trim();
-  }
-
-  function hasNativeUpload(){
-    return !!(window.BricoUpload && typeof window.BricoUpload.uploadJson==='function');
-  }
-
-  function closeSettings(){
-    var box=document.getElementById('bricoUploadSettingsBox');
-    if(box)box.style.display='none';
+  function fillSettings(){
+    var ep=document.getElementById('bricoEndpointInput'),tk=document.getElementById('bricoTokenInput');
+    if(ep)ep.value=getEndpoint();
+    if(tk)tk.value=getToken();
   }
 
   function openSettings(){
-    var box=document.getElementById('bricoUploadSettingsBox');
-    if(!box)return;
-    document.getElementById('bricoEndpointInput').value=getEndpoint();
-    document.getElementById('bricoTokenInput').value=getToken();
-    box.style.display='block';
-    status('Wpisz adres i klucz, a potem ZAPISZ.',null);
-    setTimeout(function(){document.getElementById('bricoTokenInput').focus();},100);
+    var main=document.getElementById('settingsBtn');
+    if(main)main.click();
+    fillSettings();
+    setTimeout(function(){var sec=document.getElementById('bricoUploadSettingsBox');if(sec)sec.scrollIntoView({behavior:'smooth',block:'center'});},80);
   }
 
   function saveSettings(){
     var endpoint=(document.getElementById('bricoEndpointInput').value||'').trim();
     var token=(document.getElementById('bricoTokenInput').value||'').trim();
-    if(!endpoint || endpoint.indexOf('https://')!==0){status('Adres musi zaczynać się od https://',false);return;}
+    if(!endpoint||endpoint.indexOf('https://')!==0){status('Adres musi zaczynać się od https://',false);return;}
     if(!token){status('Wpisz klucz wysyłania.',false);return;}
     localStorage.setItem(ENDPOINT_KEY,endpoint);
     localStorage.setItem(TOKEN_KEY,token);
-    closeSettings();
-    status('Wysyłanie skonfigurowane • '+(hasNativeUpload()?'JAVA APK':'FETCH'),true);
+    status('Wysyłanie gotowe • '+(hasNativeUpload()?'JAVA':'FETCH'),true);
   }
 
   function resetButton(delay){
     var btn=document.getElementById('bricoUploadBtn');
-    setTimeout(function(){
-      if(!btn)return;
-      btn.disabled=false;
-      btn.textContent='WYŚLIJ DO GENERATORA ETYKIET';
-    },delay||2400);
+    setTimeout(function(){if(!btn)return;btn.disabled=false;btn.textContent='WYŚLIJ DO GENERATORA';},delay||2200);
   }
 
   function finishSuccess(data){
     var btn=document.getElementById('bricoUploadBtn');
-    status('Wysłano '+(data.items||'?')+' pozycji / '+(data.qty||'?')+' szt.'+(data.file?' • '+data.file:''),true);
+    status('Wysłano '+(data.items||'?')+' poz. / '+(data.qty||'?')+' szt.',true);
     if(btn)btn.textContent='WYSŁANO ✓';
-    resetButton(2400);
+    resetButton(2200);
   }
 
   function finishError(message){
     var btn=document.getElementById('bricoUploadBtn');
-    status('Błąd wysyłania: '+message,false);
+    status('Błąd: '+message,false);
     if(btn)btn.textContent='BŁĄD — SPRÓBUJ';
     resetButton(2400);
   }
@@ -88,120 +73,67 @@
     if(nativeTimer){clearTimeout(nativeTimer);nativeTimer=null;}
     try{
       var data=result&&result.server?result.server:{};
-      if(!result || !result.ok || !data.ok){
-        finishError((result&&result.error)||(data&&data.error)||('HTTP '+((result&&result.httpCode)||'?')));
-        return;
-      }
+      if(!result||!result.ok||!data.ok){finishError((result&&result.error)||(data&&data.error)||('HTTP '+((result&&result.httpCode)||'?')));return;}
       finishSuccess(data);
-    }catch(e){
-      finishError(e.message||String(e));
-    }
+    }catch(e){finishError(e.message||String(e));}
   };
 
   async function send(){
-    var endpoint=getEndpoint();
-    var token=getToken();
-    if(!token){openSettings();return;}
-
+    var endpoint=getEndpoint(),token=getToken();
+    if(!token){openSettings();status('Ustaw klucz wysyłania.',false);return;}
     var items=collectVisibleItems();
     if(!items.length){status('Lista jest pusta.',false);return;}
 
     var btn=document.getElementById('bricoUploadBtn');
-    btn.disabled=true;
-    btn.textContent='WYSYŁAM…';
-    status('Wysyłanie '+items.length+' pozycji… • '+(hasNativeUpload()?'JAVA APK':'FETCH'),null);
+    btn.disabled=true;btn.textContent='WYSYŁAM…';
+    status('Wysyłanie '+items.length+' pozycji…',null);
 
-    var payload={
-      type:'LABELS',
-      device:'BricoScanner',
-      created:new Date().toISOString(),
-      items:items
-    };
-
+    var payload={type:'LABELS',device:'BricoScanner',created:new Date().toISOString(),items:items};
     if(hasNativeUpload()){
       try{
         window.BricoUpload.uploadJson(endpoint,token,JSON.stringify(payload));
-        nativeTimer=setTimeout(function(){
-          nativeTimer=null;
-          finishError('Brak odpowiedzi z modułu JAVA po 20 s');
-        },20000);
-      }catch(e){
-        finishError(e.message||String(e));
-      }
+        nativeTimer=setTimeout(function(){nativeTimer=null;finishError('Brak odpowiedzi JAVA po 20 s');},20000);
+      }catch(e){finishError(e.message||String(e));}
       return;
     }
 
     try{
-      var res=await fetch(endpoint,{
-        method:'POST',
-        mode:'cors',
-        cache:'no-store',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+token
-        },
-        body:JSON.stringify(payload)
-      });
-
-      var text=await res.text();
-      var data={};
-      try{data=JSON.parse(text);}catch(e){}
-      if(!res.ok || !data.ok)throw new Error(data.error||('HTTP '+res.status));
+      var res=await fetch(endpoint,{method:'POST',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+      var text=await res.text(),data={};try{data=JSON.parse(text)}catch(e){}
+      if(!res.ok||!data.ok)throw new Error(data.error||('HTTP '+res.status));
       finishSuccess(data);
-    }catch(e){
-      finishError(e.message||e);
-    }
+    }catch(e){finishError(e.message||e);}
   }
 
   function install(){
     if(document.getElementById('bricoUploadBtn'))return;
     var exportBtn=document.getElementById('exportJsonBtn');
     if(!exportBtn)return;
-
     var panel=exportBtn.parentElement.parentElement;
     var grid=exportBtn.parentElement;
 
     var btn=document.createElement('button');
-    btn.id='bricoUploadBtn';
-    btn.className='primary';
-    btn.style.gridColumn='1/-1';
-    btn.textContent='WYŚLIJ DO GENERATORA ETYKIET';
-    btn.onclick=send;
-    grid.appendChild(btn);
-
-    var line=document.createElement('div');
-    line.style.cssText='display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px';
+    btn.id='bricoUploadBtn';btn.className='primary';btn.style.gridColumn='1/-1';btn.textContent='WYŚLIJ DO GENERATORA';btn.onclick=send;grid.appendChild(btn);
 
     var s=document.createElement('div');
     s.id='bricoUploadStatus';
-    s.className='small';
-    s.textContent=getToken()?('Wysyłanie skonfigurowane • '+(hasNativeUpload()?'JAVA APK':'FETCH')):'Wysyłanie nie jest jeszcze skonfigurowane.';
-    line.appendChild(s);
+    s.style.cssText='font-size:8px;color:#9aa5b1;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    s.textContent=getToken()?'Wysyłanie gotowe':'Klucz wysyłania ustawisz pod ⚙';
+    panel.appendChild(s);
 
-    var settings=document.createElement('button');
-    settings.textContent='USTAWIENIA';
-    settings.style.cssText='min-height:32px;font-size:10px;padding:4px 8px';
-    settings.onclick=openSettings;
-    line.appendChild(settings);
-    panel.appendChild(line);
-
-    var box=document.createElement('div');
-    box.id='bricoUploadSettingsBox';
-    box.style.cssText='display:none;margin-top:10px;padding:10px;border:1px solid #29313a;border-radius:12px;background:#0f1317';
-    box.innerHTML=''
-      +'<div style="font-size:11px;font-weight:900;margin-bottom:8px">WYSYŁANIE DO BRICOLAB</div>'
-      +'<div style="font-size:10px;color:#9aa5b1;margin-bottom:4px">Adres HTTPS</div>'
-      +'<input id="bricoEndpointInput" type="text" autocomplete="off" style="width:100%;height:40px;border-radius:9px;border:1px solid #29313a;background:#0b0f13;color:#f5f7fa;padding:8px;font-size:11px;margin-bottom:8px">'
-      +'<div style="font-size:10px;color:#9aa5b1;margin-bottom:4px">Klucz wysyłania</div>'
-      +'<input id="bricoTokenInput" type="password" autocomplete="off" style="width:100%;height:40px;border-radius:9px;border:1px solid #29313a;background:#0b0f13;color:#f5f7fa;padding:8px;font-size:11px;margin-bottom:8px">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-      +'<button id="bricoCancelSettings" type="button">ANULUJ</button>'
-      +'<button id="bricoSaveSettings" type="button" class="primary">ZAPISZ</button>'
-      +'</div>';
-    panel.appendChild(box);
-
-    document.getElementById('bricoSaveSettings').onclick=saveSettings;
-    document.getElementById('bricoCancelSettings').onclick=closeSettings;
+    var actions=document.querySelector('#settingsModal .settingsActions');
+    if(actions){
+      var sec=document.createElement('section');
+      sec.className='settingSec';sec.id='bricoUploadSettingsBox';
+      sec.innerHTML=''
+        +'<div class="settingTitle">Połączenie z BricoLab</div>'
+        +'<div class="field"><label>Adres wysyłania HTTPS</label><input id="bricoEndpointInput" type="text" autocomplete="off"></div>'
+        +'<div class="field" style="margin-top:6px"><label>Klucz wysyłania / bazy</label><input id="bricoTokenInput" type="password" autocomplete="off"></div>'
+        +'<button id="bricoSaveSettings" type="button" class="primary" style="width:100%;margin-top:7px">ZAPISZ POŁĄCZENIE</button>';
+      actions.parentNode.insertBefore(sec,actions);
+      fillSettings();
+      document.getElementById('bricoSaveSettings').onclick=saveSettings;
+    }
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
