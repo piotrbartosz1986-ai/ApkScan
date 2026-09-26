@@ -3,6 +3,7 @@
 
   var STYLE_ID='bricoDetailStyleV43';
   var ATTR='data-brico-v43-text';
+  var MODE_ATTR='data-brico-v43-mode';
 
   function ensureStyle(){
     if(document.getElementById(STYLE_ID))return;
@@ -13,6 +14,8 @@
       html[data-brico-theme="light"] #scanList .itemmeta .bricoSepV43{color:#465463!important}\
       html[data-brico-theme="dark"] #scanList .itemmeta .bricoSepV43{color:#c7d0d9!important}\
       #scanList .itemmeta .bricoMissingV43{color:#ff6969!important;font-weight:950!important}\
+      #scanList .item.bricoLatestItem .itemmeta{font-weight:400!important}\
+      #scanList .item.bricoLatestItem .bricoLatestBreakV45{display:block!important;height:0!important}\
     ';
     document.head.appendChild(style);
   }
@@ -23,19 +26,30 @@
 
   function decorate(el){
     if(!el)return;
+    var row=el.closest('.item');
+    if(!row)return;
+
     var text=String(el.textContent||'');
-    if(el.getAttribute(ATTR)===text && el.querySelector('.bricoSepV43'))return;
+    var mode=row.classList.contains('bricoLatestItem')?'latest':'normal';
+    if(el.getAttribute(ATTR)===text && el.getAttribute(MODE_ATTR)===mode && el.querySelector('.bricoSepV43'))return;
 
     el.setAttribute(ATTR,text);
+    el.setAttribute(MODE_ATTR,mode);
     var parts=text.split('|');
     var frag=document.createDocumentFragment();
 
     parts.forEach(function(part,index){
       if(index>0){
-        var sep=document.createElement('span');
-        sep.className='bricoSepV43';
-        sep.textContent='|';
-        frag.appendChild(sep);
+        if(mode==='latest' && index===2){
+          var br=document.createElement('br');
+          br.className='bricoLatestBreakV45';
+          frag.appendChild(br);
+        }else{
+          var sep=document.createElement('span');
+          sep.className='bricoSepV43';
+          sep.textContent='|';
+          frag.appendChild(sep);
+        }
       }
 
       if(isMissing(part)){
@@ -69,7 +83,7 @@
     refresh();
     var list=document.getElementById('scanList');
     if(list&&window.MutationObserver){
-      new MutationObserver(schedule).observe(list,{childList:true,subtree:true,characterData:true});
+      new MutationObserver(schedule).observe(list,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});
     }
     setTimeout(refresh,120);
     setTimeout(refresh,500);
