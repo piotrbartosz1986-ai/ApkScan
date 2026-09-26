@@ -1,6 +1,8 @@
 (function(){
   'use strict';
 
+  var PREVIEW_KEY='brico.preview.visible';
+
   function nativeConfig(){
     try{
       if(window.NativeScanner&&typeof window.NativeScanner.getConfig==='function'){
@@ -11,22 +13,86 @@
     return {};
   }
 
+  function nativeState(){
+    try{
+      if(window.NativeScanner&&typeof window.NativeScanner.getState==='function'){
+        var x=window.NativeScanner.getState();
+        return typeof x==='string'?JSON.parse(x):(x||{});
+      }
+    }catch(e){}
+    return {};
+  }
+
+  function previewVisible(){
+    try{
+      if(window.NativeScanner&&typeof window.NativeScanner.isPreviewVisible==='function'){
+        return !!window.NativeScanner.isPreviewVisible();
+      }
+    }catch(e){}
+    return localStorage.getItem(PREVIEW_KEY)!=='0';
+  }
+
   function ensureExtraCameraSettings(){
-    if(document.getElementById('setZoomThumbDp'))return;
     var digital=document.getElementById('setDigitalZoom');
     if(!digital)return;
     var grid=digital.closest('.fieldGrid');
-    if(!grid)return;
+    var section=digital.closest('.settingSec');
+    if(!grid||!section)return;
 
-    var thumb=document.createElement('div');
-    thumb.className='field';
-    thumb.innerHTML='<label>Rozmiar kulki zoomu (dp)</label><input id="setZoomThumbDp" type="number" min="16" max="56" step="1">';
-    grid.appendChild(thumb);
+    if(!document.getElementById('setPreviewCamera')){
+      var preview=document.createElement('label');
+      preview.className='check';
+      preview.id='previewCameraRow';
+      preview.innerHTML='<input type="checkbox" id="setPreviewCamera"> Podgląd kamery';
+      var autofocus=document.getElementById('setAutofocus');
+      var autofocusRow=autofocus?autofocus.closest('.check'):null;
+      if(autofocusRow)section.insertBefore(preview,autofocusRow);else section.insertBefore(preview,grid);
 
-    var context=document.createElement('div');
-    context.className='field';
-    context.innerHTML='<label>Okno kontekstowe od zoomu ×</label><input id="setContextFromZoom" type="number" min="1" max="30" step="0.1">';
-    grid.appendChild(context);
+      var diag=document.createElement('div');
+      diag.id='cameraDiagV34';
+      diag.className='tech';
+      diag.style.margin='-2px 0 7px';
+      diag.textContent='CameraX: —';
+      preview.insertAdjacentElement('afterend',diag);
+
+      document.getElementById('setPreviewCamera').addEventListener('change',function(){
+        var visible=!!this.checked;
+        try{localStorage.setItem(PREVIEW_KEY,visible?'1':'0')}catch(e){}
+        try{
+          if(window.NativeScanner&&typeof window.NativeScanner.setPreviewVisible==='function'){
+            window.NativeScanner.setPreviewVisible(visible);
+          }
+        }catch(e){}
+        setTimeout(updateCameraDiag,250);
+        setTimeout(updateCameraDiag,900);
+      });
+    }
+
+    if(!document.getElementById('setZoomThumbDp')){
+      var thumb=document.createElement('div');
+      thumb.className='field';
+      thumb.innerHTML='<label>Rozmiar kulki zoomu (dp)</label><input id="setZoomThumbDp" type="number" min="16" max="56" step="1">';
+      grid.appendChild(thumb);
+    }
+
+    if(!document.getElementById('setContextFromZoom')){
+      var context=document.createElement('div');
+      context.className='field';
+      context.innerHTML='<label>Okno kontekstowe od zoomu ×</label><input id="setContextFromZoom" type="number" min="1" max="30" step="0.1">';
+      grid.appendChild(context);
+    }
+  }
+
+  function updateCameraDiag(){
+    var diag=document.getElementById('cameraDiagV34');
+    if(!diag)return;
+    var st=nativeState();
+    var run=st.running?'RUNNING':'STOP';
+    var pause=st.paused?' • PAUZA':'';
+    var torch=st.torch?' • 🔦 ON':' • 🔦 OFF';
+    var focus=st.focus?(' • AF '+st.focus):'';
+    diag.textContent='CameraX: '+run+pause+torch+focus;
+    diag.style.color=st.running?'#36d27f':'#9aa5b1';
   }
 
   function fillExtraSettings(){
@@ -34,8 +100,11 @@
     var cfg=nativeConfig();
     var thumb=document.getElementById('setZoomThumbDp');
     var from=document.getElementById('setContextFromZoom');
+    var preview=document.getElementById('setPreviewCamera');
     if(thumb)thumb.value=cfg.zoomThumbDp!=null?cfg.zoomThumbDp:28;
     if(from)from.value=cfg.contextPreviewFromZoom!=null?cfg.contextPreviewFromZoom:3.0;
+    if(preview)preview.checked=previewVisible();
+    updateCameraDiag();
   }
 
   function installExtraSettings(){
@@ -45,7 +114,10 @@
     var settings=document.getElementById('settingsBtn');
     if(settings&&!settings.dataset.v33extra){
       settings.dataset.v33extra='1';
-      settings.addEventListener('click',function(){setTimeout(fillExtraSettings,20)});
+      settings.addEventListener('click',function(){
+        setTimeout(fillExtraSettings,20);
+        setTimeout(updateCameraDiag,400);
+      });
     }
 
     var save=document.getElementById('saveSettingsBtn');
