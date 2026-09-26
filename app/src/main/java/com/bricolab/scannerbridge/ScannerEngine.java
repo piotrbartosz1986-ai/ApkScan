@@ -74,12 +74,10 @@ public class ScannerEngine {
     private final Map<String, Long> seenAtByCode = new HashMap<>();
     private final Map<String, Boolean> rearmedByCode = new HashMap<>();
 
-    // Potwierdzenie poprawnego EAN-u: musi być ten sam kod kilka razy z rzędu.
     private String lastValidCandidate = null;
     private int validSameReadCount = 0;
     private long lastValidSeenAt = 0L;
 
-    // Potwierdzenie błędnego EAN-u przed sygnałem błędu.
     private String lastInvalidCode = null;
     private int invalidSameReadCount = 0;
     private long lastInvalidSeenAt = 0L;
@@ -90,13 +88,11 @@ public class ScannerEngine {
         public void run() {
             if (running && !paused && config.autoFocus) {
                 long now = SystemClock.elapsedRealtime();
-
                 if (now - lastAcceptedAnyCodeAt > 900L &&
                         now - lastFocusAttemptAt >= config.focusIntervalMs) {
                     focusCenter(false);
                 }
             }
-
             handler.postDelayed(this, 350L);
         }
     };
@@ -116,17 +112,9 @@ public class ScannerEngine {
         emitState("config_applied");
     }
 
-    public ScannerConfig getConfig() {
-        return config;
-    }
-
-    public boolean isRunning() {
-        return running;
-    }
-
-    public boolean isPaused() {
-        return paused;
-    }
+    public ScannerConfig getConfig() { return config; }
+    public boolean isRunning() { return running; }
+    public boolean isPaused() { return paused; }
 
     public void start() {
         if (running) {
@@ -140,7 +128,6 @@ public class ScannerEngine {
         emitState("starting");
 
         ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(owner);
-
         future.addListener(() -> {
             try {
                 cameraProvider = future.get();
@@ -154,7 +141,6 @@ public class ScannerEngine {
 
     private void bindCamera() {
         if (cameraProvider == null) return;
-
         cameraProvider.unbindAll();
 
         Preview preview = new Preview.Builder().build();
@@ -163,7 +149,6 @@ public class ScannerEngine {
         ImageAnalysis analysis = new ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
-
         analysis.setAnalyzer(cameraExecutor, this::analyzeImage);
 
         try {
@@ -182,10 +167,8 @@ public class ScannerEngine {
         running = true;
         paused = false;
         focusState = "ready";
-
         observeZoom();
         emitState("started");
-
         handler.postDelayed(() -> focusCenter(false), 300L);
     }
 
@@ -198,10 +181,7 @@ public class ScannerEngine {
         resetValidTracking();
         resetInvalidTracking();
 
-        if (cameraProvider != null) {
-            cameraProvider.unbindAll();
-        }
-
+        if (cameraProvider != null) cameraProvider.unbindAll();
         camera = null;
         emitState("stopped");
     }
@@ -221,7 +201,6 @@ public class ScannerEngine {
             emitState("torch_unavailable");
             return;
         }
-
         camera.getCameraControl().enableTorch(enabled);
         torchOn = enabled;
         emitState(enabled ? "torch_on" : "torch_off");
@@ -229,7 +208,6 @@ public class ScannerEngine {
 
     public void setLinearZoom(float linearZoom) {
         if (camera == null || !running) return;
-
         float safe = Math.max(0f, Math.min(1f, linearZoom));
         camera.getCameraControl().setLinearZoom(safe);
     }
@@ -243,7 +221,6 @@ public class ScannerEngine {
 
         SurfaceOrientedMeteringPointFactory factory =
                 new SurfaceOrientedMeteringPointFactory(1f, 1f);
-
         MeteringPoint point = factory.createPoint(0.5f, 0.5f, 0.18f);
 
         FocusMeteringAction action = new FocusMeteringAction.Builder(
@@ -297,32 +274,58 @@ public class ScannerEngine {
                     }
 
                     String raw = candidate.getRawValue().trim();
-                    String format = formatName(candidate.getFormat());
-
+                    String sourceFormat = formatName(candidate.getFormat());
                     if (raw.isEmpty()) {
                         maybeResetValidTracking();
                         maybeResetInvalidTracking();
                         return;
                     }
 
-                    if (!("EAN_13".equals(format) || "EAN_8".equals(format))) {
+                    String code = normalizeProductCode(raw, sourceFormat);
+                    if (code == null) {
                         resetValidTracking();
+                        maybeResetInvalidTracking();
                         return;
                     }
 
-                    if (!isValidEan(raw, format)) {
+                    String productFormat = code.length() == 8 ? "EAN_8" : "EAN_13";
+                    if (config.validateEanChecksum && !isValidEan(code, productFormat)) {
                         resetValidTracking();
-                        registerInvalidEan(raw);
+                        registerInvalidEan(code);
                         return;
                     }
 
                     resetInvalidTracking();
-                    registerValidEan(raw, format);
+                    registerValidEan(code, productFormat);
                 })
                 .addOnCompleteListener(task -> {
                     busy.set(false);
                     imageProxy.close();
                 });
+    }
+
+    private String normalizeProductCode(String raw, String sourceFormat) {
+        if (raw == null) return null;
+        String value = raw.trim();
+        if (value.isEmpty()) return null;
+
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) return null;
+        }
+
+        if ("EAN_13".equals(sourceFormat)) return value.length() == 13 ? value : null;
+        if ("EAN_8".equals(sourceFormat)) return value.length() == 8 ? value : null;
+
+        if (value.length() == 13 || value.length() == 8) return value;
+
+        if (config.padNumericTo13 && value.length() > 0 && value.length() < 13) {
+            StringBuilder padded = new StringBuilder(13);
+            for (int i = value.length(); i < 13; i++) padded.append('0');
+            padded.append(value);
+            return padded.toString();
+        }
+
+        return null;
     }
 
     private Barcode pickBarcode(List<Barcode> barcodes, ImageProxy proxy, int rotation) {
@@ -339,7 +342,6 @@ public class ScannerEngine {
                         : proxy.getHeight();
 
         List<Barcode> accepted = new ArrayList<>();
-
         for (Barcode barcode : barcodes) {
             Rect box = barcode.getBoundingBox();
             if (box == null) continue;
@@ -360,10 +362,8 @@ public class ScannerEngine {
         accepted.sort(Comparator.comparingDouble(barcode -> {
             Rect box = barcode.getBoundingBox();
             if (box == null) return Double.MAX_VALUE;
-
             double cx = box.exactCenterX() / Math.max(1f, rotatedWidth);
             double cy = box.exactCenterY() / Math.max(1f, rotatedHeight);
-
             return Math.hypot(cx - 0.5, cy - 0.5);
         }));
 
@@ -380,7 +380,6 @@ public class ScannerEngine {
 
         int sum = 0;
         int dataLength = code.length() - 1;
-
         for (int i = 0; i < dataLength; i++) {
             int digit = code.charAt(i) - '0';
             int distanceFromCheck = dataLength - i;
@@ -405,21 +404,17 @@ public class ScannerEngine {
         }
 
         lastValidSeenAt = now;
-
         if (validSameReadCount < config.validConfirmReads) {
             emitState("ean_confirming");
             return;
         }
-
         acceptBarcode(code, format);
     }
 
     private void maybeResetValidTracking() {
         if (lastValidCandidate == null) return;
         long now = SystemClock.elapsedRealtime();
-        if (now - lastValidSeenAt > config.validResetMs) {
-            resetValidTracking();
-        }
+        if (now - lastValidSeenAt > config.validResetMs) resetValidTracking();
     }
 
     private void resetValidTracking() {
@@ -442,7 +437,6 @@ public class ScannerEngine {
         }
 
         lastInvalidSeenAt = now;
-
         if (!invalidErrorPlayed && invalidSameReadCount >= config.invalidConfirmReads) {
             invalidErrorPlayed = true;
             errorFeedback();
@@ -453,9 +447,7 @@ public class ScannerEngine {
     private void maybeResetInvalidTracking() {
         if (lastInvalidCode == null) return;
         long now = SystemClock.elapsedRealtime();
-        if (now - lastInvalidSeenAt > config.invalidResetMs) {
-            resetInvalidTracking();
-        }
+        if (now - lastInvalidSeenAt > config.invalidResetMs) resetInvalidTracking();
     }
 
     private void resetInvalidTracking() {
@@ -472,7 +464,6 @@ public class ScannerEngine {
         if (previousSeen == null || now - previousSeen > config.releaseDelayMs) {
             rearmedByCode.put(code, true);
         }
-
         seenAtByCode.put(code, now);
 
         Long previousAccepted = acceptedAtByCode.get(code);
@@ -489,16 +480,12 @@ public class ScannerEngine {
 
         long timestamp = System.currentTimeMillis();
         successFeedback();
-
         owner.runOnUiThread(() -> listener.onBarcode(code, format, timestamp));
     }
 
     private void rebuildBarcodeScanner() {
         if (barcodeScanner != null) {
-            try {
-                barcodeScanner.close();
-            } catch (Exception ignored) {
-            }
+            try { barcodeScanner.close(); } catch (Exception ignored) {}
         }
 
         int[] formats = config.barcodeFormats();
@@ -510,52 +497,40 @@ public class ScannerEngine {
         BarcodeScannerOptions options = new BarcodeScannerOptions.Builder()
                 .setBarcodeFormats(first, rest)
                 .build();
-
         barcodeScanner = BarcodeScanning.getClient(options);
     }
 
     private void observeZoom() {
         if (camera == null) return;
-
         camera.getCameraInfo().getZoomState().observe(owner, state -> {
-            if (state != null) {
-                emitState("zoom_changed");
-            }
+            if (state != null) emitState("zoom_changed");
         });
     }
 
     private void successFeedback() {
         try {
             Vibrator vibrator = (Vibrator) owner.getSystemService(Context.VIBRATOR_SERVICE);
-            if (vibrator != null && vibrator.hasVibrator()) {
-                vibrator.vibrate(45);
-            }
-        } catch (Exception ignored) {
-        }
+            if (vibrator != null && vibrator.hasVibrator()) vibrator.vibrate(45);
+        } catch (Exception ignored) {}
 
         try {
             ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70);
             tone.startTone(ToneGenerator.TONE_PROP_BEEP, 70);
             handler.postDelayed(tone::release, 120L);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
     }
 
     private void errorFeedback() {
         try {
             Vibrator vibrator = (Vibrator) owner.getSystemService(Context.VIBRATOR_SERVICE);
-            if (vibrator != null && vibrator.hasVibrator()) {
-                vibrator.vibrate(160);
-            }
-        } catch (Exception ignored) {
-        }
+            if (vibrator != null && vibrator.hasVibrator()) vibrator.vibrate(160);
+        } catch (Exception ignored) {}
 
         try {
             ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90);
             tone.startTone(ToneGenerator.TONE_PROP_NACK, 240);
             handler.postDelayed(tone::release, 320L);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
     }
 
     public String stateJson() {
@@ -605,6 +580,17 @@ public class ScannerEngine {
         switch (format) {
             case Barcode.FORMAT_EAN_13: return "EAN_13";
             case Barcode.FORMAT_EAN_8: return "EAN_8";
+            case Barcode.FORMAT_CODE_128: return "CODE_128";
+            case Barcode.FORMAT_CODE_39: return "CODE_39";
+            case Barcode.FORMAT_CODE_93: return "CODE_93";
+            case Barcode.FORMAT_CODABAR: return "CODABAR";
+            case Barcode.FORMAT_ITF: return "ITF";
+            case Barcode.FORMAT_UPC_A: return "UPC_A";
+            case Barcode.FORMAT_UPC_E: return "UPC_E";
+            case Barcode.FORMAT_QR_CODE: return "QR_CODE";
+            case Barcode.FORMAT_DATA_MATRIX: return "DATA_MATRIX";
+            case Barcode.FORMAT_PDF417: return "PDF417";
+            case Barcode.FORMAT_AZTEC: return "AZTEC";
             default: return "OTHER";
         }
     }
@@ -614,10 +600,7 @@ public class ScannerEngine {
         handler.removeCallbacks(autoFocusRunnable);
 
         if (barcodeScanner != null) {
-            try {
-                barcodeScanner.close();
-            } catch (Exception ignored) {
-            }
+            try { barcodeScanner.close(); } catch (Exception ignored) {}
         }
 
         cameraExecutor.shutdown();
