@@ -18,7 +18,7 @@
         android:theme="@style/Theme.BricoScanner">
 
         <activity
-            android:name=".MainActivityV36"
+            android:name=".MainActivityV37"
             android:exported="true"
             android:screenOrientation="portrait">
 
