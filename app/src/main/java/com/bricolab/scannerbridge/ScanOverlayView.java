@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.View;
@@ -14,9 +15,10 @@ public class ScanOverlayView extends View {
 
     private static WeakReference<ScanOverlayView> activeView = new WeakReference<>(null);
 
-    private final Paint dimPaint = new Paint();
-    private final Paint borderPaint = new Paint();
-    private final Paint linePaint = new Paint();
+    private final Paint dimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path dimPath = new Path();
 
     private float left = ScannerConfig.liveRoiLeft;
     private float right = ScannerConfig.liveRoiRight;
@@ -39,6 +41,7 @@ public class ScanOverlayView extends View {
 
         // 70% przezroczystości poza ramką = 30% krycia czerni.
         dimPaint.setColor(Color.argb(77, 0, 0, 0));
+        dimPaint.setStyle(Paint.Style.FILL);
 
         borderPaint.setColor(Color.WHITE);
         borderPaint.setStyle(Paint.Style.STROKE);
@@ -89,12 +92,17 @@ public class ScanOverlayView extends View {
                 h * bottom
         );
 
-        canvas.drawRect(0, 0, w, zone.top, dimPaint);
-        canvas.drawRect(0, zone.bottom, w, h, dimPaint);
-        canvas.drawRect(0, zone.top, zone.left, zone.bottom, dimPaint);
-        canvas.drawRect(zone.right, zone.top, w, zone.bottom, dimPaint);
+        float radius = dp(12f);
 
-        canvas.drawRoundRect(zone, dp(12f), dp(12f), borderPaint);
+        // Jedna maska EVEN_ODD zamiast czterech prostokątów. Dzięki temu
+        // przyciemnienie dokładnie respektuje zaokrąglone rogi ramki.
+        dimPath.reset();
+        dimPath.setFillType(Path.FillType.EVEN_ODD);
+        dimPath.addRect(0f, 0f, w, h, Path.Direction.CW);
+        dimPath.addRoundRect(zone, radius, radius, Path.Direction.CW);
+        canvas.drawPath(dimPath, dimPaint);
+
+        canvas.drawRoundRect(zone, radius, radius, borderPaint);
         canvas.drawLine(
                 zone.left + zone.width() * 0.07f,
                 zone.centerY(),
