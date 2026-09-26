@@ -35,7 +35,7 @@
     if(!el){
       el=document.createElement('div');
       el.id=STATUS_ID;
-      el.style.cssText='margin-top:7px;padding-top:7px;border-top:1px solid var(--line);font-size:9px;font-weight:850;line-height:1.4;word-break:break-word';
+      el.style.cssText='margin-top:7px;padding-top:7px;border-top:1px solid var(--line);font-size:9px;font-weight:850;line-height:1.45;word-break:break-word';
       tech.parentNode.appendChild(el);
     }
     return el;
@@ -45,8 +45,11 @@
     var cfg=nativeConfig();
     var list=formatsOf(cfg);
     var code128=list.indexOf('CODE_128')>=0;
+    var af=cfg.autoFocus!==false;
+    var focusMs=Number(cfg.focusIntervalMs)||1800;
     el.style.color=code128?'var(--green)':'var(--red)';
-    el.textContent=(prefix?prefix+' • ':'')+'DO LISTY: '+(list.length?list.join(', '):'BRAK')+(code128?'':' • CODE_128 WYŁĄCZONY');
+    el.textContent=(prefix?prefix+' • ':'')+'DO LISTY: '+(list.length?list.join(', '):'BRAK')+(code128?'':' • CODE_128 WYŁĄCZONY')+'\nAUTOFOCUS NATYWNIE: '+(af?'ON':'OFF')+' • co '+focusMs+' ms';
+    el.style.whiteSpace='pre-line';
   }
   function migrateCode128Once(){
     if(localStorage.getItem(MIGRATION_KEY)==='1'){showStatus();return}
@@ -75,19 +78,12 @@
   function verifySavedFormats(){
     var wanted=checkedFormats();
     if(!wanted.length){showStatus();return}
-    var cfg=nativeConfig();
-    var active=formatsOf(cfg);
-    if(!sameFormats(wanted,active)){
-      cfg.formats=wanted;
-      cfg.version=Math.max(10,Number(cfg.version)||0);
-      apply(cfg);
-      setTimeout(function(){
-        var after=formatsOf(nativeConfig());
-        showStatus(sameFormats(wanted,after)?'FORMATY ZAPISANE':'BŁĄD FORMATÓW');
-      },300);
-    }else{
-      showStatus('FORMATY ZAPISANE');
-    }
+
+    // Tylko weryfikacja. Nie zapisujemy tutaj ponownie całego configu.
+    // Poprzednia wersja mogła w wyścigu po kliknięciu ZAPISZ pobrać starszy
+    // config i zapisać go ponownie, cofając m.in. focusIntervalMs/autofocus.
+    var active=formatsOf(nativeConfig());
+    showStatus(sameFormats(wanted,active)?'USTAWIENIA ZAPISANE':'FORMATY NIEZGODNE');
   }
   function boot(){
     ensureStatus();
@@ -95,7 +91,7 @@
     document.addEventListener('click',function(e){
       var id=e.target&&e.target.id;
       if(id==='settingsBtn')setTimeout(showStatus,80);
-      if(id==='saveSettingsBtn')setTimeout(verifySavedFormats,220);
+      if(id==='saveSettingsBtn')setTimeout(verifySavedFormats,700);
     },false);
   }
 
