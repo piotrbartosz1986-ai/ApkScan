@@ -15,7 +15,7 @@ public class ScannerConfig {
     public static volatile float liveRoiTop = 0.20f;
     public static volatile float liveRoiBottom = 0.80f;
 
-    public int version = 8;
+    public int version = 9;
     public long duplicateDelayMs = 1500L;
     public long releaseDelayMs = 550L;
     public long focusIntervalMs = 1800L;
@@ -40,6 +40,7 @@ public class ScannerConfig {
     public ScannerConfig() {
         formats.add("EAN_13");
         formats.add("EAN_8");
+        formats.add("CODE_128");
     }
 
     public static ScannerConfig fromJson(String json) {
@@ -47,8 +48,9 @@ public class ScannerConfig {
 
         try {
             JSONObject root = new JSONObject(json);
+            int sourceVersion = root.optInt("version", config.version);
 
-            config.version = root.optInt("version", config.version);
+            config.version = Math.max(9, sourceVersion);
             config.duplicateDelayMs = clampLong(root.optLong("duplicateDelayMs", config.duplicateDelayMs), 0L, 30000L);
             config.releaseDelayMs = clampLong(root.optLong("releaseDelayMs", config.releaseDelayMs), 0L, 10000L);
             config.focusIntervalMs = clampLong(root.optLong("focusIntervalMs", config.focusIntervalMs), 500L, 30000L);
@@ -93,7 +95,15 @@ public class ScannerConfig {
                 if (config.formats.isEmpty()) {
                     config.formats.add("EAN_13");
                     config.formats.add("EAN_8");
+                    config.formats.add("CODE_128");
                 }
+            }
+
+            // Configi zapisane przed v9 mogły nie przechowywać CODE_128 mimo zaznaczenia.
+            // Jednorazowa migracja włącza go dla cenówek systemowych. Od v9 checkbox
+            // znowu jest normalnym ustawieniem użytkownika.
+            if (sourceVersion < 9 && !config.formats.contains("CODE_128")) {
+                config.formats.add("CODE_128");
             }
         } catch (Exception ignored) {
         }
@@ -159,6 +169,7 @@ public class ScannerConfig {
         if (values.isEmpty()) {
             values.add(Barcode.FORMAT_EAN_13);
             values.add(Barcode.FORMAT_EAN_8);
+            values.add(Barcode.FORMAT_CODE_128);
         }
 
         int[] output = new int[values.size()];
