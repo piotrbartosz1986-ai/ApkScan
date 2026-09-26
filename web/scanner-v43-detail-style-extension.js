@@ -9,10 +9,10 @@
     var style=document.createElement('style');
     style.id=STYLE_ID;
     style.textContent='\
-      #scanList .itemmeta .bricoSepV43{display:inline-block;font-size:1.32em!important;font-weight:950!important;line-height:.72!important;vertical-align:-.04em;margin:0 .03em;color:#c7d0d9!important}\
+      #scanList .itemmeta .bricoSepV43{display:inline-block;font-size:1.45em!important;font-weight:950!important;line-height:.70!important;vertical-align:-.05em;margin:0 .03em;color:#c7d0d9!important}\
       html[data-brico-theme="light"] #scanList .itemmeta .bricoSepV43{color:#465463!important}\
       html[data-brico-theme="dark"] #scanList .itemmeta .bricoSepV43{color:#c7d0d9!important}\
-      #scanList .itemmeta .bricoMissingV43{color:var(--red)!important;font-weight:900!important}\
+      #scanList .itemmeta .bricoMissingV43{color:#ff6969!important;font-weight:950!important}\
     ';
     document.head.appendChild(style);
   }
@@ -60,7 +60,9 @@
   function schedule(){
     if(scheduled)return;
     scheduled=true;
-    requestAnimationFrame(function(){scheduled=false;refresh()});
+    var run=function(){scheduled=false;refresh()};
+    if(typeof queueMicrotask==='function')queueMicrotask(run);
+    else Promise.resolve().then(run);
   }
 
   function boot(){
