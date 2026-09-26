@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- dark premium background -->
+    <path
+        android:fillColor="#11161C"
+        android:pathData="M14,6H94A8,8 0,0 1,102 14V94A8,8 0,0 1,94 102H14A8,8 0,0 1,6 94V14A8,8 0,0 1,14 6Z" />
+
+    <!-- barcode -->
+    <path android:fillColor="#F3F6F8" android:pathData="M66,24H69V48H66Z" />
+    <path android:fillColor="#F3F6F8" android:pathData="M72,24H74V48H72Z" />
+    <path android:fillColor="#F3F6F8" android:pathData="M77,24H81V48H77Z" />
+    <path android:fillColor="#F3F6F8" android:pathData="M84,24H86V48H84Z" />
+    <path android:fillColor="#F3F6F8" android:pathData="M89,24H93V48H89Z" />
+
+    <!-- scan beam -->
+    <path
+        android:fillColor="#D72B2B"
+        android:pathData="M53,38L94,38L94,42L53,42Z" />
+
+    <!-- handheld scanner head -->
+    <path
+        android:fillColor="#E9EEF2"
+        android:pathData="M24,24H53A7,7 0,0 1,60 31V48A7,7 0,0 1,53 55H24A7,7 0,0 1,17 48V31A7,7 0,0 1,24 24Z" />
+
+    <!-- scanner dark face -->
+    <path
+        android:fillColor="#26313B"
+        android:pathData="M25,31H52A2,2 0,0 1,54 33V45A2,2 0,0 1,52 47H25A2,2 0,0 1,23 45V33A2,2 0,0 1,25 31Z" />
+
+    <!-- handle -->
+    <path
+        android:fillColor="#E9EEF2"
+        android:pathData="M31,54H48L43,86A5,5 0,0 1,38 90H29A4,4 0,0 1,25 85L31,54Z" />
+
+    <!-- trigger -->
+    <path
+        android:fillColor="#D72B2B"
+        android:pathData="M33,61H43L41,69H31Z" />
+</vector>
