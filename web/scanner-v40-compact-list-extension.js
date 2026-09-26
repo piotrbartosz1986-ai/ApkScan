@@ -6,8 +6,11 @@
   var STYLE_ID='bricoCompactListV40Style';
   var DB_NAME='BricoScannerProductsV1';
   var PRODUCT_STORE='products';
+  var META_STORE='meta';
+  var META_KEY='current';
   var scheduled=false;
   var dbPromise=null;
+  var dbStatus={ready:false,stale:false,reportDate:'',source:'START'};
 
   function clean(v){return String(v==null?'':v).trim()}
   function money(v){var n=Number(v);return Number.isFinite(n)?n.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'—'}
@@ -60,29 +63,20 @@
   }
 
   function sourceBadge(){return document.getElementById('bricoDbBadge')}
-  function databaseReady(){
-    var src=sourceBadge();
-    if(!src)return false;
-    var t=clean(src.textContent).toUpperCase();
-    if(!t||t.indexOf('BAZA:')!==0)return false;
-    return !/(START|SPRAWDZAM|POBIERAM|ANALIZA|BŁĄD|BRAK KLUCZA)/.test(t);
+
+  function parseReportDate(value){
+    var s=clean(value);if(!s)return null;
+    var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if(m)return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
+    m=/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/.exec(s);
+    if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
+    var d=new Date(s);return isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
   }
 
-  function syncBadge(){
-    ensureHeaderBits();
-    var src=sourceBadge(),dst=document.getElementById('bricoDbBadgeV40');
-    if(!dst)return;
-    if(!src){dst.textContent='BAZA: START';dst.className='warn';return}
-    var raw=clean(src.textContent),upper=raw.toUpperCase();
-    var cls='';
-    if(upper.indexOf('BŁĄD')>=0||upper.indexOf('BRAK')>=0)cls='err';
-    else if(upper.indexOf('OFFLINE')>=0||upper.indexOf('SPRAWDZAM')>=0||upper.indexOf('POBIERAM')>=0||upper.indexOf('ANALIZA')>=0||upper.indexOf('START')>=0)cls='warn';
-    else cls='ok';
-    if(cls==='ok')dst.textContent='BAZA: ONLINE';
-    else if(upper.indexOf('OFFLINE')>=0)dst.textContent='BAZA: OFFLINE';
-    else if(upper.indexOf('BŁĄD')>=0)dst.textContent='BAZA: BŁĄD';
-    else dst.textContent=raw||'BAZA: START';
-    dst.className=cls;
+  function isStaleDate(value){
+    var d=parseReportDate(value);if(!d)return true;
+    var now=new Date();
+    return d.getFullYear()!==now.getFullYear()||d.getMonth()!==now.getMonth()||d.getDate()!==now.getDate();
   }
 
   function openDb(){
@@ -100,6 +94,39 @@
       }catch(e){resolve(null)}
     });
     return dbPromise;
+  }
+
+  async function getMeta(){
+    var db=await openDb();
+    if(!db||!db.objectStoreNames.contains(META_STORE))return null;
+    return await new Promise(function(resolve){
+      try{
+        var tx=db.transaction(META_STORE,'readonly');
+        var r=tx.objectStore(META_STORE).get(META_KEY);
+        r.onsuccess=function(){resolve(r.result||null)};
+        r.onerror=function(){resolve(null)};
+      }catch(e){resolve(null)}
+    });
+  }
+
+  async function refreshDbStatus(){
+    var src=sourceBadge();
+    var sourceText=src?clean(src.textContent).toUpperCase():'START';
+    var meta=await getMeta();
+    dbStatus.ready=!!meta;
+    dbStatus.reportDate=meta&&meta.reportDate?clean(meta.reportDate):'';
+    dbStatus.stale=dbStatus.ready&&isStaleDate(dbStatus.reportDate);
+    dbStatus.source=sourceText;
+
+    ensureHeaderBits();
+    var dst=document.getElementById('bricoDbBadgeV40');if(!dst)return;
+    dst.title=dbStatus.reportDate?'Raport: '+dbStatus.reportDate:'';
+
+    if(dbStatus.ready&&dbStatus.stale){dst.textContent='BAZA: NIEAKTUALNA';dst.className='warn';return}
+    if(dbStatus.ready&&sourceText.indexOf('OFFLINE')>=0){dst.textContent='BAZA: OFFLINE';dst.className='warn';return}
+    if(dbStatus.ready&&!/(BŁĄD|BRAK KLUCZA|START|SPRAWDZAM|POBIERAM|ANALIZA)/.test(sourceText)){dst.textContent='BAZA: AKTUALNA';dst.className='ok';return}
+    if(sourceText.indexOf('BŁĄD')>=0||sourceText.indexOf('BRAK KLUCZA')>=0){dst.textContent='BAZA: BŁĄD';dst.className='err';return}
+    dst.textContent='BAZA: START';dst.className='warn';
   }
 
   async function getProduct(ean){
@@ -124,26 +151,27 @@
   function baseMeta(meta){
     var saved=meta.getAttribute('data-brico-base-meta-v40');
     if(saved!=null)return saved;
-    var current=clean(meta.textContent).replace(/\s*•\s*(Stan .*|Brak w bazie).*$/,'');
+    var current=clean(meta.textContent).replace(/\s*•\s*(Stan .*|Brak w bazie|Brak w nieaktualnej bazie).*$/,'');
     meta.setAttribute('data-brico-base-meta-v40',current);
     return current;
   }
 
   function productText(p){
-    if(!p)return ' • Brak w bazie';
+    if(!p)return dbStatus.stale?' • Brak w nieaktualnej bazie':' • Brak w bazie';
     var stock=intLike(p.stock);
     if(stock!=='—')stock+=' szt';
     return ' • Stan '+stock+' • Cena N. '+money(p.purchasePrice)+' • Cena Sp. '+money(p.salePrice);
   }
 
   async function decorateRow(row){
-    if(!databaseReady())return;
+    if(!dbStatus.ready)return;
     var codeEl=row.querySelector('.code'),meta=row.querySelector('.itemmeta');
     if(!codeEl||!meta)return;
     var ean=clean(codeEl.textContent).replace(/\D/g,'');
     if(!/^(\d{8}|\d{13})$/.test(ean))return;
-    if(row.getAttribute('data-brico-product-ean-v40')===ean)return;
-    row.setAttribute('data-brico-product-ean-v40',ean);
+    var dataKey=ean+'|'+(dbStatus.reportDate||'?');
+    if(row.getAttribute('data-brico-product-key-v40')===dataKey)return;
+    row.setAttribute('data-brico-product-key-v40',dataKey);
     var p=await getProduct(ean);
     if(!row.isConnected)return;
     var currentCode=clean((row.querySelector('.code')||{}).textContent).replace(/\D/g,'');
@@ -156,7 +184,6 @@
     scheduled=false;
     ensureStyle();
     ensureHeaderBits();
-    syncBadge();
 
     var list=document.getElementById('scanList');
     if(!list)return;
@@ -166,12 +193,12 @@
 
     var latest=latestCode();
     rows.forEach(function(row,idx){
-      var codeEl=row.querySelector('.code');
-      if(!codeEl)return;
+      var codeEl=row.querySelector('.code');if(!codeEl)return;
       var code=clean(codeEl.textContent);
       row.classList.toggle('bricoLatestItem',latest?code===latest:idx===0);
-      decorateRow(row);
     });
+
+    refreshDbStatus().then(function(){rows.forEach(decorateRow)});
   }
 
   function schedule(){
@@ -192,7 +219,7 @@
     var src=sourceBadge();
     if(src&&'MutationObserver' in window)new MutationObserver(function(){dbPromise=null;schedule()}).observe(src,{childList:true,subtree:true,characterData:true,attributes:true});
 
-    setInterval(function(){syncBadge();if(databaseReady())schedule()},1200);
+    setInterval(schedule,1500);
     setTimeout(update,150);
     setTimeout(update,700);
   }
