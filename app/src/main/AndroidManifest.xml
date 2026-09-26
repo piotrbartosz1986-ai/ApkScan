@@ -11,12 +11,12 @@
     <application
         android:name=".BricoApplication"
         android:allowBackup="true"
-        android:label="Brico Scanner Bridge"
+        android:label="Skaner"
         android:supportsRtl="true"
         android:theme="@style/Theme.BricoScanner">
 
         <activity
-            android:name=".MainActivityV25"
+            android:name=".MainActivityOverlay"
             android:exported="true"
             android:screenOrientation="portrait">
 
