@@ -105,6 +105,14 @@ public class ScannerConfig {
             if (sourceVersion < 9 && !config.formats.contains("CODE_128")) {
                 config.formats.add("CODE_128");
             }
+
+            // Cenówki systemowe z Code 128 są dużo trudniejsze optycznie niż EAN-y
+            // z opakowań. ML Kit potrafi odczytać je tylko przez pojedynczą klatkę.
+            // Gdy Code 128 jest włączony, jeden poprawny decode wystarcza; ochronę
+            // przed duplikatem nadal zapewniają duplicateDelay/releaseDelay.
+            if (config.formats.contains("CODE_128")) {
+                config.validConfirmReads = 1;
+            }
         } catch (Exception ignored) {
         }
 
