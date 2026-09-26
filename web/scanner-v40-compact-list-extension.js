@@ -4,18 +4,19 @@
   window.bricoCompactListMode=true;
 
   var STYLE_ID='bricoCompactListV40Style';
-  var DB_NAME='BricoScannerProductsV1';
-  var PRODUCT_STORE='products';
-  var META_STORE='meta';
-  var META_KEY='current';
-  var STALE_MS=24*60*60*1000;
+  var LOOKUP_URL='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_product_lookup.php';
+  var TOKEN_KEY='brico.upload.token';
+  var SHOP='08042';
   var scheduled=false;
-  var dbPromise=null;
-  var dbStatus={ready:false,stale:false,reportDate:'',source:'START',modifiedMs:0};
+  var productCache=new Map();
+  var dbInfo={stale:null,reportDate:'',status:'START'};
+  var metaPending=false;
 
   function clean(v){return String(v==null?'':v).trim()}
-  function money(v){var n=Number(v);return Number.isFinite(n)?n.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'—'}
-  function intLike(v){var n=Number(String(v==null?'':v).replace(',','.'));return Number.isFinite(n)?n.toLocaleString('pl-PL',{maximumFractionDigits:3}):'—'}
+  function cleanEan(v){return clean(v).replace(/\D/g,'')}
+  function money(v){var n=Number(String(v==null?'':v).replace(',','.'));return Number.isFinite(n)?n.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'—'}
+  function qty(v){var n=Number(String(v==null?'':v).replace(',','.'));return Number.isFinite(n)?n.toLocaleString('pl-PL',{maximumFractionDigits:3}):'—'}
+  function token(){try{return clean(localStorage.getItem(TOKEN_KEY)||'')}catch(e){return ''}}
 
   function ensureStyle(){
     if(document.getElementById(STYLE_ID))return;
@@ -40,18 +41,19 @@
   }
 
   function ensureHeaderBits(){
-    var qty=document.getElementById('qtyTotal');
-    if(qty&&!document.getElementById('bricoPositionStatsV40')){
+    var qtyTotal=document.getElementById('qtyTotal');
+    if(qtyTotal&&!document.getElementById('bricoPositionStatsV40')){
       var span=document.createElement('span');
       span.id='bricoPositionStatsV40';
       span.className='bricoPositionStatsV40';
-      qty.insertAdjacentElement('afterend',span);
+      qtyTotal.insertAdjacentElement('afterend',span);
     }
     var head=document.querySelector('.listHead');
     if(head&&!document.getElementById('bricoDbBadgeV40')){
       var badge=document.createElement('div');
       badge.id='bricoDbBadgeV40';
-      badge.textContent='BAZA: START';
+      badge.textContent='BAZA: SPRAWDZAM';
+      badge.className='warn';
       head.appendChild(badge);
     }
   }
@@ -63,97 +65,29 @@
     return 'pozycji';
   }
 
-  function sourceBadge(){return document.getElementById('bricoDbBadge')}
-
-  function parseReportDate(value){
-    var s=clean(value);if(!s)return 0;
-    var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-    if(m){var d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),23,59,59);return d.getTime()}
-    m=/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/.exec(s);
-    if(m){var d2=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),23,59,59);return d2.getTime()}
-    var d3=new Date(s);return isNaN(d3.getTime())?0:d3.getTime();
-  }
-
-  function metaModifiedMs(meta){
-    if(!meta)return 0;
-    var ms=Number(meta.sourceModifiedMs||meta.modifiedMs||0);
-    if(Number.isFinite(ms)&&ms>0)return ms;
-    return parseReportDate(meta.reportDate||'');
-  }
-
-  function isStaleMeta(meta){
-    var ms=metaModifiedMs(meta);
-    return !!ms&&(Date.now()-ms>STALE_MS);
-  }
-
-  function openDb(){
-    if(dbPromise)return dbPromise;
-    dbPromise=new Promise(function(resolve){
-      try{
-        var req=indexedDB.open(DB_NAME);
-        req.onsuccess=function(){
-          var db=req.result;
-          if(!db.objectStoreNames.contains(PRODUCT_STORE)){try{db.close()}catch(e){};resolve(null);return}
-          resolve(db);
-        };
-        req.onerror=function(){resolve(null)};
-        req.onupgradeneeded=function(){try{req.transaction.abort()}catch(e){}};
-      }catch(e){resolve(null)}
-    });
-    return dbPromise;
-  }
-
-  async function getMeta(){
-    var db=await openDb();
-    if(!db||!db.objectStoreNames.contains(META_STORE))return null;
-    return await new Promise(function(resolve){
-      try{
-        var tx=db.transaction(META_STORE,'readonly');
-        var r=tx.objectStore(META_STORE).get(META_KEY);
-        r.onsuccess=function(){resolve(r.result||null)};
-        r.onerror=function(){resolve(null)};
-      }catch(e){resolve(null)}
-    });
-  }
-
-  async function refreshDbStatus(){
-    var src=sourceBadge();
-    var sourceText=src?clean(src.textContent).toUpperCase():'START';
-    var meta=await getMeta();
-    dbStatus.ready=!!meta;
-    dbStatus.reportDate=meta&&meta.reportDate?clean(meta.reportDate):'';
-    dbStatus.modifiedMs=metaModifiedMs(meta);
-    dbStatus.stale=dbStatus.ready&&isStaleMeta(meta);
-    dbStatus.source=sourceText;
-
+  function setBadge(text,kind,title){
     ensureHeaderBits();
-    var dst=document.getElementById('bricoDbBadgeV40');if(!dst)return;
-    var ageH=dbStatus.modifiedMs?Math.max(0,Math.floor((Date.now()-dbStatus.modifiedMs)/3600000)):null;
-    dst.title=(dbStatus.reportDate?'Raport: '+dbStatus.reportDate:'')+(ageH!=null?((dbStatus.reportDate?' • ':'')+'wiek pliku: '+ageH+' h'):'');
-
-    if(dbStatus.ready&&dbStatus.stale){dst.textContent='BAZA: NIEAKTUALNA';dst.className='warn';return}
-    if(dbStatus.ready&&sourceText.indexOf('OFFLINE')>=0){dst.textContent='BAZA: OFFLINE';dst.className='warn';return}
-    if(dbStatus.ready&&!/(BŁĄD|BRAK KLUCZA|START|SPRAWDZAM|POBIERAM|ANALIZA)/.test(sourceText)){dst.textContent='BAZA: AKTUALNA';dst.className='ok';return}
-    if(sourceText.indexOf('BŁĄD')>=0||sourceText.indexOf('BRAK KLUCZA')>=0){dst.textContent='BAZA: BŁĄD';dst.className='err';return}
-    dst.textContent='BAZA: START';dst.className='warn';
+    var el=document.getElementById('bricoDbBadgeV40');
+    if(!el)return;
+    el.textContent=text;
+    el.className=kind||'';
+    el.title=title||'';
   }
 
-  async function getProduct(ean){
-    var db=await openDb();
-    if(!db)return null;
-    return await new Promise(function(resolve){
-      try{
-        var tx=db.transaction(PRODUCT_STORE,'readonly');
-        var r=tx.objectStore(PRODUCT_STORE).get(ean);
-        r.onsuccess=function(){resolve(r.result||null)};
-        r.onerror=function(){resolve(null)};
-      }catch(e){resolve(null)}
-    });
+  function applyDatabaseInfo(info){
+    info=info||{};
+    if(typeof info.stale==='boolean')dbInfo.stale=info.stale;
+    if(info.reportDate)dbInfo.reportDate=String(info.reportDate);
+    if(dbInfo.stale===true){
+      setBadge('BAZA: NIEAKTUALNA','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+    }else if(dbInfo.stale===false){
+      setBadge('BAZA: ONLINE','ok',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+    }
   }
 
   function latestCode(){
     var last=document.getElementById('lastCode');
-    var value=last?clean(last.textContent):'';
+    var value=last?cleanEan(last.textContent):'';
     return /^(\d{8}|\d{13})$/.test(value)?value:'';
   }
 
@@ -165,70 +99,99 @@
     return current;
   }
 
-  function productText(p){
-    if(!p)return dbStatus.stale?' • Brak w nieaktualnej bazie':' • Brak w bazie';
-    var stock=intLike(p.stock);
-    if(stock!=='—')stock+=' szt';
+  function productSuffix(entry){
+    if(!entry)return '';
+    if(entry.found===false)return dbInfo.stale===true?' • Brak w nieaktualnej bazie':' • Brak w bazie';
+    var p=entry.product||{};
+    var stock=qty(p.stock);if(stock!=='—')stock+=' szt';
     return ' • Stan '+stock+' • Cena N. '+money(p.purchasePrice)+' • Cena Sp. '+money(p.salePrice);
-  }
-
-  async function decorateRow(row){
-    if(!dbStatus.ready)return;
-    var codeEl=row.querySelector('.code'),meta=row.querySelector('.itemmeta');
-    if(!codeEl||!meta)return;
-    var ean=clean(codeEl.textContent).replace(/\D/g,'');
-    if(!/^(\d{8}|\d{13})$/.test(ean))return;
-    var dataKey=ean+'|'+(dbStatus.reportDate||'?')+'|'+(dbStatus.stale?'stale':'fresh');
-    if(row.getAttribute('data-brico-product-key-v40')===dataKey)return;
-    row.setAttribute('data-brico-product-key-v40',dataKey);
-    var p=await getProduct(ean);
-    if(!row.isConnected)return;
-    var currentCode=clean((row.querySelector('.code')||{}).textContent).replace(/\D/g,'');
-    if(currentCode!==ean)return;
-    var m=row.querySelector('.itemmeta');if(!m)return;
-    m.textContent=baseMeta(m)+productText(p);
   }
 
   function update(){
     scheduled=false;
     ensureStyle();
     ensureHeaderBits();
-
     var list=document.getElementById('scanList');
     if(!list)return;
     var rows=[].slice.call(list.querySelectorAll('.item'));
     var pos=document.getElementById('bricoPositionStatsV40');
     if(pos)pos.textContent='• '+rows.length+' '+positionWord(rows.length);
-
     var latest=latestCode();
     rows.forEach(function(row,idx){
-      var codeEl=row.querySelector('.code');if(!codeEl)return;
-      var code=clean(codeEl.textContent);
-      row.classList.toggle('bricoLatestItem',latest?code===latest:idx===0);
+      var codeEl=row.querySelector('.code'),meta=row.querySelector('.itemmeta');
+      if(!codeEl||!meta)return;
+      var ean=cleanEan(codeEl.textContent);
+      row.classList.toggle('bricoLatestItem',latest?ean===latest:idx===0);
+      meta.textContent=baseMeta(meta)+productSuffix(productCache.get(ean));
     });
-
-    refreshDbStatus().then(function(){rows.forEach(decorateRow)});
   }
 
-  function schedule(){
-    if(scheduled)return;
-    scheduled=true;
-    setTimeout(update,0);
+  function schedule(){if(scheduled)return;scheduled=true;setTimeout(update,0)}
+
+  function requestMeta(){
+    if(metaPending)return;
+    if(!(window.BricoUpload&&typeof window.BricoUpload.uploadJson==='function')){setBadge('BAZA: OFFLINE','warn');return}
+    var t=token();
+    if(!t){setBadge('BAZA: BRAK KLUCZA','err');return}
+    metaPending=true;
+    setBadge('BAZA: SPRAWDZAM','warn');
+    try{
+      window.BricoUpload.uploadJson(LOOKUP_URL,t,JSON.stringify({type:'PRODUCT_META',shop:SHOP,requestId:Date.now()}));
+      setTimeout(function(){if(metaPending){metaPending=false;setBadge('BAZA: STATUS ?','warn')}},8000);
+    }catch(e){metaPending=false;setBadge('BAZA: BŁĄD','err')}
   }
+
+  var previous=window.onNativeUploadResult;
+  window.onNativeUploadResult=function(result){
+    var server=result&&result.server?result.server:null;
+
+    if(server&&server.kind==='PRODUCT_META'){
+      metaPending=false;
+      if(result&&result.ok&&server.ok){
+        applyDatabaseInfo(server.database||server);
+      }else{
+        setBadge('BAZA: BŁĄD','err');
+      }
+      schedule();
+      return;
+    }
+
+    if(metaPending&&server&&server.kind==='PRODUCT_LOOKUP'&&!server.ean&&server.error==='invalid_type'){
+      metaPending=false;
+      setBadge('BAZA: ONLINE','ok');
+      return;
+    }
+
+    if(server&&server.kind==='PRODUCT_LOOKUP'){
+      if(typeof previous==='function'){try{previous(result)}catch(e){}}
+      metaPending=false;
+      if(server.database)applyDatabaseInfo(server.database);
+      else if(typeof server.databaseStale==='boolean')applyDatabaseInfo({stale:server.databaseStale,reportDate:server.reportDate||''});
+      else if(result&&result.ok&&server.ok)setBadge('BAZA: ONLINE','ok');
+      else setBadge('BAZA: BŁĄD','err');
+
+      var ean=cleanEan(server.ean||'');
+      if(ean){
+        if(result&&result.ok&&server.ok){
+          productCache.set(ean,{found:!!server.found,product:server.product||null});
+        }
+        schedule();
+      }
+      return;
+    }
+
+    if(typeof previous==='function')previous(result);
+  };
 
   function boot(){
     ensureStyle();
     ensureHeaderBits();
     update();
-
     var list=document.getElementById('scanList');
     if(list&&'MutationObserver' in window)new MutationObserver(schedule).observe(list,{childList:true,subtree:true,characterData:true});
     var last=document.getElementById('lastCode');
     if(last&&'MutationObserver' in window)new MutationObserver(schedule).observe(last,{childList:true,subtree:true,characterData:true});
-    var src=sourceBadge();
-    if(src&&'MutationObserver' in window)new MutationObserver(function(){dbPromise=null;schedule()}).observe(src,{childList:true,subtree:true,characterData:true,attributes:true});
-
-    setInterval(schedule,1500);
+    setTimeout(requestMeta,500);
     setTimeout(update,150);
     setTimeout(update,700);
   }
