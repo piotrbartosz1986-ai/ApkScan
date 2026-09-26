@@ -13,6 +13,7 @@
       #bricoProductCard{display:none!important}\
       #scanList .bricoProdMini{display:none!important}\
       #scanList .code{color:var(--text)!important;text-decoration:none!important;cursor:default!important}\
+      #scanList .itemmeta{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.28!important}\
       #scanList .item.bricoLatestItem .code{font-size:17px!important;font-weight:950!important;line-height:1.08!important;letter-spacing:-.01em}\
       #scanList .item.bricoLatestItem .itemmeta{font-size:9px!important;font-weight:750}\
       .bricoPositionStatsV40{font-size:9px;color:var(--muted);margin-left:5px}\
@@ -79,8 +80,8 @@
       if(!codeEl||!meta)return;
       var code=clean(codeEl.textContent);
       row.classList.toggle('bricoLatestItem',latest?code===latest:idx===0);
-      var base=baseMeta(meta);
-      meta.textContent=base+productSuffix(row);
+      var next=baseMeta(meta)+productSuffix(row);
+      if(meta.textContent!==next)meta.textContent=next;
     });
   }
 
