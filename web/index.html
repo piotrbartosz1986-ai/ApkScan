@@ -8,7 +8,7 @@
 <style>html,body{margin:0;background:#0b0d10;color:#f5f7fa;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.loading{padding:24px;font-weight:800}</style>
 </head>
 <body>
-<div class="loading" id="loading">Ładowanie Skanera 3.2.2…</div>
+<div class="loading" id="loading">Ładowanie Skanera 3.2.3…</div>
 <script>
 (function(){
   var stamp=Date.now();
@@ -17,10 +17,11 @@
     fetch('upload-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UPLOAD '+r.status);return r.text()}),
     fetch('product-data-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('PRODUCT '+r.status);return r.text()}).catch(function(){return ''}),
     fetch('scanner-v32-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('V32 '+r.status);return r.text()}).catch(function(){return ''}),
-    fetch('scanner-v33-ui-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('V33 '+r.status);return r.text()}).catch(function(){return ''})
+    fetch('scanner-v33-ui-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('V33 '+r.status);return r.text()}).catch(function(){return ''}),
+    fetch('scanner-v34-camera-extension.js?_='+stamp,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('V34 '+r.status);return r.text()}).catch(function(){return ''})
   ]).then(function(parts){
     var html=parts[0];
-    var extensions=[parts[1],parts[2],parts[3],parts[4]].filter(Boolean).map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'}).join('\n');
+    var extensions=[parts[1],parts[2],parts[3],parts[4],parts[5]].filter(Boolean).map(function(code){return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>'}).join('\n');
     if(html.indexOf('</body>')>=0)html=html.replace('</body>',extensions+'\n</body>');
     else html+=extensions;
     document.open();document.write(html);document.close();
