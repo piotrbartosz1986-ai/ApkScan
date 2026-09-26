@@ -17,7 +17,7 @@
             android:id="@+id/previewView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            app:implementationMode="compatible"
+            app:implementationMode="performance"
             app:scaleType="fillCenter" />
 
         <com.bricolab.scannerbridge.ScanOverlayView
@@ -65,7 +65,6 @@
             android:textSize="11sp"
             android:textStyle="bold" />
 
-        <!-- Kept for MainActivity compatibility, intentionally hidden. -->
         <TextView
             android:id="@+id/cameraScanState"
             android:layout_width="1dp"
