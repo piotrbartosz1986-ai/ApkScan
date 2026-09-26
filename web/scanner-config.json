@@ -1,9 +1,13 @@
 {
-  "version": 7,
+  "version": 9,
   "duplicateDelayMs": 1500,
   "releaseDelayMs": 550,
   "focusIntervalMs": 1800,
   "autoFocus": true,
+  "validateEanChecksum": true,
+  "padNumericTo13": true,
+  "extraDigitalZoomMax": 3,
+  "contextPreview": false,
   "validConfirmReads": 3,
   "validResetMs": 700,
   "invalidConfirmReads": 3,
@@ -16,6 +20,7 @@
   },
   "formats": [
     "EAN_13",
-    "EAN_8"
+    "EAN_8",
+    "CODE_128"
   ]
 }
