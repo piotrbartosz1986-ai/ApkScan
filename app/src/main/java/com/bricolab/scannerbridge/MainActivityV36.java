@@ -3,6 +3,7 @@ package com.bricolab.scannerbridge;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -12,15 +13,15 @@ import org.json.JSONObject;
 import java.util.Locale;
 
 /**
- * Native camera controls layered over the proven v2.7 CameraX core.
- * Important: this class does NOT replace ScannerEngine and does NOT add a
- * second Preview. CameraX is still started through the old NativeBridge path.
+ * Native controls over the proven v2.7 CameraX core.
+ * START/STOP intentionally duplicates the exact working web path from test C.
  */
 public class MainActivityV36 extends MainActivityV25 {
 
     private static final int ACTIVE_GREEN = Color.rgb(30, 125, 71);
     private static final int INACTIVE_RED = Color.rgb(168, 50, 50);
 
+    private WebView controlWebView;
     private Button scanButton;
     private Button torchButton;
     private SeekBar zoomSeek;
@@ -32,6 +33,7 @@ public class MainActivityV36 extends MainActivityV25 {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        controlWebView = findViewById(R.id.webView);
         scanButton = findViewById(R.id.cameraScanToggle);
         torchButton = findViewById(R.id.cameraTorchToggle);
         zoomSeek = findViewById(R.id.zoomSeek);
@@ -43,21 +45,7 @@ public class MainActivityV36 extends MainActivityV25 {
 
     private void installCameraControls() {
         if (scanButton != null) {
-            scanButton.setOnClickListener(v -> {
-                JSONObject state = readState();
-                boolean running = state.optBoolean("running", false);
-
-                if (running) {
-                    pendingTorchAfterStart = false;
-                    new NativeBridge().stopScanner();
-                    new NativeBridge().setPreviewVisible(false);
-                } else {
-                    // Do NOT expose PreviewView before Android has granted CAMERA.
-                    // The old requestScannerStart() path asks for the system permission;
-                    // preview becomes visible only after ScannerEngine reports started.
-                    new NativeBridge().startScanner();
-                }
-            });
+            scanButton.setOnClickListener(v -> triggerProvenCameraToggle());
         }
 
         if (torchButton != null) {
@@ -69,8 +57,9 @@ public class MainActivityV36 extends MainActivityV25 {
                 if (running) {
                     new NativeBridge().setTorch(!torch);
                 } else {
+                    // Start through the exact same proven C path, then enable torch.
                     pendingTorchAfterStart = true;
-                    new NativeBridge().startScanner();
+                    triggerProvenCameraToggle();
                 }
             });
         }
@@ -98,6 +87,15 @@ public class MainActivityV36 extends MainActivityV25 {
         }
     }
 
+    private void triggerProvenCameraToggle() {
+        WebView view = controlWebView;
+        if (view == null) return;
+        view.evaluateJavascript(
+                "window.bricoGoodCameraToggle && window.bricoGoodCameraToggle();",
+                null
+        );
+    }
+
     @Override
     public void onState(String stateJson) {
         super.onState(stateJson);
@@ -107,15 +105,9 @@ public class MainActivityV36 extends MainActivityV25 {
                 JSONObject state = new JSONObject(stateJson);
                 String event = state.optString("event", "");
 
-                if ("started".equals(event) || "already_running".equals(event)) {
-                    // Same CameraX core as the working test C, but reveal the
-                    // Preview only after native start has succeeded.
-                    new NativeBridge().setPreviewVisible(true);
-
-                    if (pendingTorchAfterStart) {
-                        pendingTorchAfterStart = false;
-                        new NativeBridge().setTorch(true);
-                    }
+                if (("started".equals(event) || "already_running".equals(event)) && pendingTorchAfterStart) {
+                    pendingTorchAfterStart = false;
+                    new NativeBridge().setTorch(true);
                 }
 
                 refreshControls(state);
@@ -155,8 +147,6 @@ public class MainActivityV36 extends MainActivityV25 {
                     ColorStateList.valueOf(torch ? ACTIVE_GREEN : INACTIVE_RED)
             );
             torchButton.setAlpha(0.35f);
-            // Keep it tappable while stopped: one tap starts CameraX and then
-            // enables the torch. Once running, flash availability is respected.
             torchButton.setEnabled(!running || flashAvailable);
         }
 
