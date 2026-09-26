@@ -31,6 +31,12 @@
   }
 
   function clean(v){return String(v==null?'':v).trim()}
+  function positionWord(n){
+    if(n===1)return 'pozycja';
+    var last=n%10,last2=n%100;
+    if(last>=2&&last<=4&&!(last2>=12&&last2<=14))return 'pozycje';
+    return 'pozycji';
+  }
 
   function productSuffix(row){
     var mini=row.querySelector('.bricoProdMini');
@@ -71,7 +77,7 @@
     if(!list)return;
     var rows=[].slice.call(list.querySelectorAll('.item'));
     var pos=document.getElementById('bricoPositionStatsV40');
-    if(pos)pos.textContent=rows.length+' '+(rows.length===1?'pozycja':(rows.length>=2&&rows.length<=4?'pozycje':'pozycji'));
+    if(pos)pos.textContent='• '+rows.length+' '+positionWord(rows.length);
 
     var latest=latestCode();
     rows.forEach(function(row,idx){
