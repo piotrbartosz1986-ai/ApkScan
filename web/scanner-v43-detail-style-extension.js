@@ -15,13 +15,32 @@
       html[data-brico-theme="dark"] #scanList .itemmeta .bricoSepV43{color:#c7d0d9!important}\
       #scanList .itemmeta .bricoMissingV43{color:#ff6969!important;font-weight:950!important}\
       #scanList .item.bricoLatestItem .itemmeta{font-weight:400!important}\
-      #scanList .item.bricoLatestItem .bricoLatestBreakV45{display:block!important;height:0!important}\
+      #scanList .item.bricoLatestItem .bricoLatestTopV46,#scanList .item.bricoLatestItem .bricoLatestBottomV46{display:block!important;width:100%!important}\
+      #scanList .item.bricoLatestItem .bricoLatestBottomV46{margin-top:1px!important}\
     ';
     document.head.appendChild(style);
   }
 
   function isMissing(text){
     return /Brak w (?:nieaktualnej )?bazie/i.test(text||'');
+  }
+
+  function appendPart(target,part){
+    if(isMissing(part)){
+      var missing=document.createElement('span');
+      missing.className='bricoMissingV43';
+      missing.textContent=part;
+      target.appendChild(missing);
+    }else{
+      target.appendChild(document.createTextNode(part));
+    }
+  }
+
+  function appendSep(target){
+    var sep=document.createElement('span');
+    sep.className='bricoSepV43';
+    sep.textContent='|';
+    target.appendChild(sep);
   }
 
   function decorate(el){
@@ -38,29 +57,27 @@
     var parts=text.split('|');
     var frag=document.createDocumentFragment();
 
-    parts.forEach(function(part,index){
-      if(index>0){
-        if(mode==='latest' && index===2){
-          var br=document.createElement('br');
-          br.className='bricoLatestBreakV45';
-          frag.appendChild(br);
-        }else{
-          var sep=document.createElement('span');
-          sep.className='bricoSepV43';
-          sep.textContent='|';
-          frag.appendChild(sep);
-        }
-      }
+    if(mode==='latest' && parts.length>=3){
+      var top=document.createElement('span');
+      top.className='bricoLatestTopV46';
+      appendPart(top,parts[0]||'');
+      appendSep(top);
+      appendPart(top,parts[1]||'');
+      frag.appendChild(top);
 
-      if(isMissing(part)){
-        var missing=document.createElement('span');
-        missing.className='bricoMissingV43';
-        missing.textContent=part;
-        frag.appendChild(missing);
-      }else{
-        frag.appendChild(document.createTextNode(part));
+      var bottom=document.createElement('span');
+      bottom.className='bricoLatestBottomV46';
+      for(var i=2;i<parts.length;i++){
+        if(i>2)appendSep(bottom);
+        appendPart(bottom,parts[i]||'');
       }
-    });
+      frag.appendChild(bottom);
+    }else{
+      parts.forEach(function(part,index){
+        if(index>0)appendSep(frag);
+        appendPart(frag,part);
+      });
+    }
 
     el.replaceChildren(frag);
   }
