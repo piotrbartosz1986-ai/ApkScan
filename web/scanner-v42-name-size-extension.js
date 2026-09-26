@@ -9,9 +9,9 @@
       #scanList .code{font-size:11px!important;line-height:1.12!important;font-weight:900!important}\
       #scanList .itemmeta{font-size:7.5px!important;font-weight:500!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;line-height:1.08!important;letter-spacing:-.12px!important}\
       #scanList .item.bricoLatestItem .code{font-size:12px!important;line-height:1.10!important;font-weight:950!important;max-width:15ch!important;white-space:normal!important;overflow-wrap:anywhere!important}\
-      #scanList .item.bricoLatestItem .itemmeta{font-size:8px!important;font-weight:500!important;white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;line-height:1.18!important}\
+      #scanList .item.bricoLatestItem .itemmeta{font-size:8px!important;font-weight:400!important;white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;line-height:1.18!important}\
       #scanList .bricoSepV43{display:inline-block!important;font-size:1.32em!important;font-weight:950!important;line-height:.72!important;vertical-align:-.02em!important;color:#c4ccd5!important;letter-spacing:0!important;margin:0 .5px!important}\
-      #scanList .item.bricoLatestItem .bricoSepV43{font-size:1.38em!important}\
+      #scanList .item.bricoLatestItem .bricoSepV43{font-size:1.42em!important;font-weight:950!important}\
       #scanList .item.bricoLatestItem .bricoBreakSepV44{display:none!important}\
       #scanList .item.bricoLatestItem .bricoLatestBreakV44{display:block!important}\
       html[data-brico-theme="light"] #scanList .bricoSepV43{color:#4d5b69!important}\
