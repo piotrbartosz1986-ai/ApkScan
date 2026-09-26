@@ -26,7 +26,6 @@ import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
@@ -34,7 +33,6 @@ import com.google.mlkit.vision.common.InputImage;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -265,6 +263,17 @@ public class ScannerEngine {
         barcodeScanner
                 .process(image)
                 .addOnSuccessListener(barcodes -> {
+                    // RAW diagnostic stream: expose exactly what ML Kit decoded before
+                    // ROI, format selection, digit/length rules, checksum and 3-read confirmation.
+                    if (barcodes != null) {
+                        for (Barcode seen : barcodes) {
+                            if (seen == null || seen.getRawValue() == null) continue;
+                            String seenRaw = seen.getRawValue().trim();
+                            if (seenRaw.isEmpty()) continue;
+                            emitRawRead(seenRaw, formatName(seen.getFormat()));
+                        }
+                    }
+
                     Barcode candidate = pickBarcode(barcodes, imageProxy, rotation);
 
                     if (candidate == null || candidate.getRawValue() == null) {
@@ -277,6 +286,14 @@ public class ScannerEngine {
                     String sourceFormat = formatName(candidate.getFormat());
                     if (raw.isEmpty()) {
                         maybeResetValidTracking();
+                        maybeResetInvalidTracking();
+                        return;
+                    }
+
+                    // ML Kit scans every supported symbology for diagnostics. The user's
+                    // checked formats still decide what is allowed to continue toward the list.
+                    if (!config.formats.contains(sourceFormat)) {
+                        resetValidTracking();
                         maybeResetInvalidTracking();
                         return;
                     }
@@ -498,16 +515,9 @@ public class ScannerEngine {
             try { barcodeScanner.close(); } catch (Exception ignored) {}
         }
 
-        int[] formats = config.barcodeFormats();
-        int first = formats[0];
-        int[] rest = formats.length > 1
-                ? Arrays.copyOfRange(formats, 1, formats.length)
-                : new int[0];
-
-        BarcodeScannerOptions options = new BarcodeScannerOptions.Builder()
-                .setBarcodeFormats(first, rest)
-                .build();
-        barcodeScanner = BarcodeScanning.getClient(options);
+        // Diagnostic mode: let ML Kit decode every supported symbology. The selected
+        // format checkboxes are enforced later, before any code can reach the list.
+        barcodeScanner = BarcodeScanning.getClient();
     }
 
     private void observeZoom() {
@@ -573,6 +583,18 @@ public class ScannerEngine {
             return object.toString();
         } catch (Exception ignored) {
             return "{}";
+        }
+    }
+
+    private void emitRawRead(String raw, String format) {
+        try {
+            JSONObject object = new JSONObject(stateJson());
+            object.put("event", "raw_read");
+            object.put("rawFormat", format == null ? "OTHER" : format);
+            object.put("rawValue", raw == null ? "" : raw);
+            object.put("rawTimestamp", System.currentTimeMillis());
+            owner.runOnUiThread(() -> listener.onState(object.toString()));
+        } catch (Exception ignored) {
         }
     }
 
