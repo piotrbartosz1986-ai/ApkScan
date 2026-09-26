@@ -1,7 +1,7 @@
 package com.bricolab.scannerbridge;
 
-import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -22,6 +22,7 @@ public class MainActivityV36 extends MainActivityV25 {
 
     private static final int ACTIVE_GREEN = Color.rgb(30, 125, 71);
     private static final int INACTIVE_RED = Color.rgb(168, 50, 50);
+    private static final int CONTROL_FILL_ALPHA = 77; // ~30% krycia tylko tla
     private static final String PREFS_NAME_LOCAL = "brico-scanner-bridge";
     private static final String PREF_CONFIG_OVERRIDE_LOCAL = "scanner-config-override";
 
@@ -152,18 +153,12 @@ public class MainActivityV36 extends MainActivityV25 {
 
         if (scanButton != null) {
             scanButton.setText(active ? "STOP" : "START");
-            scanButton.setBackgroundTintList(
-                    ColorStateList.valueOf(active ? ACTIVE_GREEN : INACTIVE_RED)
-            );
-            scanButton.setAlpha(0.35f);
+            applyControlStyle(scanButton, active ? ACTIVE_GREEN : INACTIVE_RED);
         }
 
         if (torchButton != null) {
             torchButton.setText("🔦");
-            torchButton.setBackgroundTintList(
-                    ColorStateList.valueOf(torch ? ACTIVE_GREEN : INACTIVE_RED)
-            );
-            torchButton.setAlpha(0.35f);
+            applyControlStyle(torchButton, torch ? ACTIVE_GREEN : INACTIVE_RED);
             torchButton.setEnabled(!running || flashAvailable);
         }
 
@@ -181,6 +176,31 @@ public class MainActivityV36 extends MainActivityV25 {
                 zoomSeek.setProgress(progress);
             }
         }
+    }
+
+    private void applyControlStyle(Button button, int solidColor) {
+        if (button == null) return;
+
+        int fill = Color.argb(
+                CONTROL_FILL_ALPHA,
+                Color.red(solidColor),
+                Color.green(solidColor),
+                Color.blue(solidColor)
+        );
+
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.RECTANGLE);
+        background.setColor(fill);
+        background.setStroke(Math.max(1, Math.round(dp(1f))), solidColor);
+        background.setCornerRadius(dp(5f));
+
+        button.setBackground(background);
+        button.setTextColor(Color.WHITE);
+        button.setAlpha(1f);
+    }
+
+    private float dp(float value) {
+        return value * getResources().getDisplayMetrics().density;
     }
 
     private ScannerEngine scannerEngineReflect() {
