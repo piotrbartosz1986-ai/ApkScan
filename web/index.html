@@ -37,12 +37,13 @@
     localText('scanner-v39-upload-endpoint-migration.js',true),
     localText('scanner-v40-compact-list-extension.js',true),
     localText('scanner-v41-list-refresh-extension.js',true),
-    localText('scanner-v42-name-size-extension.js',true)
+    localText('scanner-v42-name-size-extension.js',true),
+    localText('scanner-v45-native-format-sync-extension.js',true)
   ]).then(function(parts){
     var html=parts[0];
-    // Ta gałąź używa natywnego ScannerConfig v9. Dzięki temu zapis checkboxów
-    // formatów (w tym CODE_128) nie wraca do starej wersji 8.
-    html=html.replace('version:8,','version:9,');
+    // ScannerConfig po stronie APK obsługuje pełną listę formatów. Zapisujemy
+    // nową wersję configu, żeby odróżnić go od starych ustawień tylko EAN.
+    html=html.replace('version:8,','version:10,');
 
     var extensions=parts.slice(1).filter(Boolean).map(function(code){
       return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>';
