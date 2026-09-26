@@ -24,7 +24,8 @@
     return [].slice.call(document.querySelectorAll('#scanList .item')).map(function(row){
       var code=row.querySelector('.code');
       var qtyInput=row.querySelector('[data-act=qty]');
-      var ean=((code&&code.textContent)||'').trim();
+      var saved=((row.getAttribute('data-brico-ean-v40')||'').trim());
+      var ean=/^(\d{8}|\d{13})$/.test(saved)?saved:(((code&&code.textContent)||'').trim());
       var qty=Math.max(1,parseInt(qtyInput?qtyInput.value:'1',10)||1);
       return [ean,qty];
     }).filter(function(x){return /^(\d{8}|\d{13})$/.test(x[0]);});
@@ -64,7 +65,7 @@
 
   function resetButton(delay){
     var btn=document.getElementById('bricoUploadBtn');
-    setTimeout(function(){if(!btn)return;btn.disabled=false;btn.textContent='WYŚLIJ DO GENERATORA';},delay||2200);
+    setTimeout(function(){if(!btn)return;btn.disabled=false;btn.textContent='WYŚLIJ';},delay||2200);
   }
 
   function finishSuccess(data){
@@ -138,7 +139,7 @@
     var grid=exportBtn.parentElement;
 
     var btn=document.createElement('button');
-    btn.id='bricoUploadBtn';btn.className='primary';btn.style.gridColumn='1/-1';btn.textContent='WYŚLIJ DO GENERATORA';btn.onclick=send;grid.appendChild(btn);
+    btn.id='bricoUploadBtn';btn.className='primary';btn.style.gridColumn='1/-1';btn.textContent='WYŚLIJ';btn.onclick=send;grid.appendChild(btn);
 
     var s=document.createElement('div');
     s.id='bricoUploadStatus';
