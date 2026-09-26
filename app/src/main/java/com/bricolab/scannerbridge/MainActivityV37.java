@@ -11,7 +11,7 @@ import org.json.JSONObject;
 /**
  * Recovery layer over V36.
  * Keeps the proven CameraX/scanner core untouched, restores the simple smooth
- * zoom interaction, and explicitly makes the WebView / overlay touch routing safe.
+ * zoom interaction, and explicitly keeps WebView input independent from native controls.
  */
 public class MainActivityV37 extends MainActivityV36 {
 
@@ -28,7 +28,6 @@ public class MainActivityV37 extends MainActivityV36 {
         Button scanButton = findViewById(R.id.cameraScanToggle);
         View scanOverlay = findViewById(R.id.scanOverlay);
 
-        // The visual ROI overlay must never steal taps from native controls.
         if (scanOverlay != null) {
             scanOverlay.setClickable(false);
             scanOverlay.setLongClickable(false);
@@ -36,8 +35,6 @@ public class MainActivityV37 extends MainActivityV36 {
             scanOverlay.setOnTouchListener(null);
         }
 
-        // Explicitly restore normal WebView touch handling after the temporary
-        // calibration build. Web controls must be clickable again.
         if (recoveryWebView != null) {
             recoveryWebView.setEnabled(true);
             recoveryWebView.setClickable(true);
@@ -47,39 +44,22 @@ public class MainActivityV37 extends MainActivityV36 {
             recoveryWebView.setOnTouchListener(null);
         }
 
-        // Rebind START/STOP with the same proven web path, plus a native fallback
-        // in case the remote UI has not finished wiring the JS function yet.
+        // START/STOP must never depend on the WebView/JS event loop. If the UI is
+        // busy or a remote extension fails, the native camera button still works.
         if (scanButton != null) {
             scanButton.setEnabled(true);
             scanButton.setClickable(true);
-            scanButton.setOnClickListener(v -> triggerCameraToggleSafe());
+            scanButton.setOnClickListener(v -> nativeCameraToggle());
         }
 
         restoreSimpleZoomListener();
     }
 
-    private void triggerCameraToggleSafe() {
-        if (recoveryWebView == null) {
-            nativeCameraToggleFallback();
-            return;
-        }
-
-        recoveryWebView.evaluateJavascript(
-                "typeof window.bricoGoodCameraToggle === 'function'",
-                result -> {
-                    if ("true".equals(result)) {
-                        recoveryWebView.evaluateJavascript("window.bricoGoodCameraToggle();", null);
-                    } else {
-                        nativeCameraToggleFallback();
-                    }
-                }
-        );
-    }
-
-    private void nativeCameraToggleFallback() {
+    private void nativeCameraToggle() {
         try {
             NativeBridge bridge = new NativeBridge();
-            JSONObject state = new JSONObject(bridge.getState() == null ? "{}" : bridge.getState());
+            String rawState = bridge.getState();
+            JSONObject state = new JSONObject(rawState == null ? "{}" : rawState);
             boolean running = state.optBoolean("running", false);
             boolean paused = state.optBoolean("paused", false);
 
@@ -99,8 +79,6 @@ public class MainActivityV37 extends MainActivityV36 {
     private void restoreSimpleZoomListener() {
         if (recoveryZoomSeek == null) return;
 
-        // Remove the temporary touch interception from the calibration build.
-        // The original simple listener was the version that moved smoothly.
         recoveryZoomSeek.setOnTouchListener(null);
         recoveryZoomSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
