@@ -118,9 +118,9 @@
 
     stopProgress();
     if(dbInfo.stale===true){
-      setBadge('BAZA: NIEAKTUALNA 100%','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+      setBadge('BAZA: NIEAKTUALNA','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
     }else if(dbInfo.stale===false){
-      setBadge('BAZA: ONLINE 100%','ok',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
+      setBadge('BAZA: ONLINE','ok',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
     }else{
       setBadge('BAZA: STATUS ?','warn',dbInfo.reportDate?'Raport: '+dbInfo.reportDate:'');
     }
