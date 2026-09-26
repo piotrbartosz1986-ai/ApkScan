@@ -190,7 +190,7 @@
 
   function timeFromBaseMeta(value){
     var text=clean(value);
-    var m=text.match(/(?:^|•)\s*(\d{1,2}:\d{2}:\d{2})\s*(?:•|$)/);
+    var m=text.match(/(?:^|•|\|)\s*(\d{1,2}:\d{2}:\d{2})\s*(?:•|\||$)/);
     return m?m[1]:'';
   }
 
@@ -215,12 +215,12 @@
   }
 
   function detailLine(entry,ean,time){
-    var head=(time?time+' • ':'')+ean;
+    var head=(time?time+'|':'')+ean;
     if(!entry)return head;
-    if(entry.found===false)return head+(dbInfo.stale===true?' • Brak w nieaktualnej bazie':' • Brak w bazie');
+    if(entry.found===false)return head+(dbInfo.stale===true?'|Brak w nieaktualnej bazie':'|Brak w bazie');
     var p=entry.product||{};
-    var stock=qty(p.stock);if(stock!=='—')stock+=' szt';
-    return head+' • St. '+stock+' • C.Z. '+money(p.purchasePrice)+' • C. Sp. '+money(p.salePrice);
+    var stock=qty(p.stock);
+    return head+'|St. '+stock+'|C.Z. '+money(p.purchasePrice)+'|C. Sp. '+money(p.salePrice);
   }
 
   function update(){
