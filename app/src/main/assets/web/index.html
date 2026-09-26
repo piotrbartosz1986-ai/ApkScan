@@ -5,18 +5,54 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Brico Scanner Offline</title>
 <style>
-body{margin:0;background:#0b0d10;color:#f5f7fa;font-family:system-ui,sans-serif;padding:16px}.panel{background:#14181d;border:1px solid #29313a;border-radius:16px;padding:14px;margin-bottom:10px}button{width:100%;min-height:48px;border:0;border-radius:12px;background:#36d27f;color:#07140d;font-weight:900;margin-bottom:8px}.dark{background:#1a2026;color:#f5f7fa;border:1px solid #29313a}.code{font:900 22px/1.2 monospace;word-break:break-all;text-align:center}.muted{color:#9aa5b1;font-size:12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.list{margin-top:10px}.item{padding:9px;border-top:1px solid #29313a;font-family:monospace}.switch{display:flex;align-items:center;gap:8px}.switch input{width:20px;height:20px}
+:root{--bg:#0b0d10;--panel:#14181d;--panel2:#0f1317;--line:#29313a;--text:#f5f7fa;--muted:#9aa5b1;--green:#36d27f;--red:#ff6969}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.wrap{padding:6px 8px 20px}.top{height:38px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:17px;font-weight:950}.gear{width:36px;height:34px;border:1px solid var(--line);border-radius:10px;background:#1a2026;color:var(--text);font-size:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:8px;margin-bottom:6px}.hero{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.label{font-size:9px;color:var(--muted);text-transform:uppercase}.code{font:900 19px/1.1 ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:9px;color:var(--muted);margin-top:2px}.count{font-size:24px;font-weight:950}.listHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}.listTitle{font-size:12px;font-weight:900}.list{display:flex;flex-direction:column;gap:4px}.item{padding:6px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);font:850 13px/1.1 ui-monospace,monospace}.empty{padding:12px;text-align:center;color:var(--muted);font-size:10px}button{min-height:30px;border:1px solid var(--line);border-radius:9px;background:#1a2026;color:var(--text);font-weight:850}.danger{color:var(--red)}.clearBottom{width:100%;margin-top:5px;font-size:9px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:flex-end}.modal.show{display:flex}.box{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;padding:12px 12px calc(12px + env(safe-area-inset-bottom))}.modalTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.check{display:flex;align-items:center;gap:8px;font-size:11px}.check input{width:19px;height:19px;accent-color:var(--green)}.note{font-size:9px;color:var(--muted);margin-top:8px}.close{width:36px;font-size:18px}.offline{font-size:8px;color:var(--muted);margin-left:5px}
 </style>
 </head>
 <body>
-<div class="panel"><b>Brico Scanner Bridge V2.2</b><div class="muted">Tryb awaryjny offline — zdalny interfejs nie był dostępny.</div></div>
-<div class="row"><button id="start">WŁĄCZ SKANER</button><button class="dark" id="focus">FOCUS</button></div>
-<div class="panel"><div class="muted">OSTATNI KOD</div><div class="code" id="code">—</div><div class="muted" id="meta">Brak skanów</div></div>
-<div class="row"><button class="dark" id="torch">LATARKA</button><button class="dark" id="preview">POKAŻ KAMERĘ</button></div>
-<div class="panel"><label class="switch"><input id="volume" type="checkbox"> VOL+/VOL− = SKAN</label></div>
-<div class="panel"><div class="muted" id="state">Gotowy</div><div class="list" id="list"></div></div>
+<div class="wrap">
+  <div class="top"><div class="brand">Brico Scanner <span class="offline">OFFLINE</span></div><button class="gear" id="settings">⚙</button></div>
+  <section class="panel hero">
+    <div><div class="label">Ostatni kod</div><div class="code" id="code">—</div><div class="meta" id="meta">Gotowy</div></div>
+    <div><div class="count" id="count">0</div><div class="label">pozycji</div></div>
+  </section>
+  <section class="panel">
+    <div class="listHead"><div class="listTitle">Lista kodów</div><button class="danger" id="clearTop">WYCZYŚĆ</button></div>
+    <div class="list" id="list"><div class="empty">Lista jest pusta.</div></div>
+    <button class="danger clearBottom" id="clearBottom">WYCZYŚĆ LISTĘ</button>
+  </section>
+</div>
+<div class="modal" id="settingsModal"><div class="box">
+  <div class="modalTop"><b>Ustawienia</b><button class="close" id="close">×</button></div>
+  <label class="check"><input id="volume" type="checkbox"> Przyciski głośności sterują skanerem</label>
+  <div class="note">Tryb awaryjny działa lokalnie. Kamera i jej przyciski pozostają nad tym ekranem.</div>
+</div></div>
 <script>
-(function(){var N=window.NativeScanner||null,state={running:false,torch:false},preview=false,list=[];function p(v){try{return typeof v==='string'?JSON.parse(v):v||{}}catch(e){return {}}}window.onNativeScannerState=function(v){state=p(v);document.getElementById('start').textContent=state.running?'WYŁĄCZ SKANER':'WŁĄCZ SKANER';document.getElementById('state').textContent='AF: '+(state.focus||'—')+' • '+(state.event||'gotowy')};window.onNativeBarcode=function(v){var x=p(v);document.getElementById('code').textContent=x.code||'—';document.getElementById('meta').textContent=(x.format||'BARCODE')+' • '+new Date(x.timestamp||Date.now()).toLocaleTimeString('pl-PL');list.unshift(x);document.getElementById('list').innerHTML=list.slice(0,30).map(function(i){return '<div class="item">'+i.code+'</div>'}).join('')};window.onNativeHardwareScanButton=function(){if(!N)return;if(!state.running){N.startScanner();return}if(state.paused){N.setPaused(false);return}N.focus()};document.getElementById('start').onclick=function(){if(!N)return;state.running?N.stopScanner():N.startScanner()};document.getElementById('focus').onclick=function(){if(N)N.focus()};document.getElementById('torch').onclick=function(){if(N){N.setTorch(!state.torch)}};document.getElementById('preview').onclick=function(){preview=!preview;if(N)N.setPreviewVisible(preview)};document.getElementById('volume').onchange=function(){if(N&&typeof N.setVolumeButtonsEnabled==='function')N.setVolumeButtonsEnabled(this.checked)};if(N){window.onNativeScannerState(N.getState());if(typeof N.getVolumeButtonsEnabled==='function')document.getElementById('volume').checked=!!N.getVolumeButtonsEnabled()}})();
+(function(){
+  var N=window.NativeScanner||null,items=[];
+  var $=function(id){return document.getElementById(id)};
+  function p(v){try{return typeof v==='string'?JSON.parse(v):v||{}}catch(e){return{}}}
+  function norm(v){var s=String(v==null?'':v).trim();return /^\d{1,13}$/.test(s)?s.padStart(13,'0'):null}
+  function render(){
+    $('count').textContent=items.length;
+    $('clearBottom').style.display=items.length?'block':'none';
+    $('list').innerHTML=items.length?items.map(function(x){return '<div class="item">'+x+'</div>'}).join(''):'<div class="empty">Lista jest pusta.</div>';
+  }
+  function clear(){items=[];$('code').textContent='—';$('meta').textContent='Gotowy';render()}
+  window.onNativeBarcode=function(v){
+    var x=p(v),code=norm(x.code);if(!code)return;
+    $('code').textContent=code;$('meta').textContent=(x.format||'KOD')+' • '+new Date(x.timestamp||Date.now()).toLocaleTimeString('pl-PL');
+    if(items.indexOf(code)<0)items.unshift(code);render();
+  };
+  window.onNativeHardwareScanButton=function(){if(!N)return;var s=p(N.getState());if(!s.running)N.startScanner();else if(s.paused)N.setPaused(false)};
+  $('clearTop').onclick=clear;$('clearBottom').onclick=clear;
+  $('settings').onclick=function(){$('settingsModal').classList.add('show')};
+  $('close').onclick=function(){$('settingsModal').classList.remove('show')};
+  $('settingsModal').onclick=function(e){if(e.target===this)this.classList.remove('show')};
+  $('volume').onchange=function(){if(N&&typeof N.setVolumeButtonsEnabled==='function')N.setVolumeButtonsEnabled(this.checked)};
+  if(N&&typeof N.getVolumeButtonsEnabled==='function')$('volume').checked=!!N.getVolumeButtonsEnabled();
+  render();
+})();
 </script>
 </body>
 </html>
