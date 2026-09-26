@@ -289,7 +289,13 @@ public class ScannerEngine {
                     }
 
                     String productFormat = code.length() == 8 ? "EAN_8" : "EAN_13";
-                    if (config.validateEanChecksum && !isValidEan(code, productFormat)) {
+                    boolean sourceIsRealEan = "EAN_13".equals(sourceFormat) || "EAN_8".equals(sourceFormat);
+
+                    // Cenówki systemowe są często CODE_128 z 13 cyframi. To identyfikator
+                    // produktu, ale nie wolno odrzucać go tylko dlatego, że źródłowa
+                    // symbologia nie jest EAN. Checksum EAN sprawdzamy wyłącznie dla
+                    // kodów faktycznie odczytanych przez ML Kit jako EAN_13 / EAN_8.
+                    if (sourceIsRealEan && config.validateEanChecksum && !isValidEan(code, productFormat)) {
                         resetValidTracking();
                         registerInvalidEan(code);
                         return;
@@ -315,6 +321,10 @@ public class ScannerEngine {
 
         if ("EAN_13".equals(sourceFormat)) return value.length() == 13 ? value : null;
         if ("EAN_8".equals(sourceFormat)) return value.length() == 8 ? value : null;
+
+        // Ustalona zasada dla cenówek z systemu: CODE_128 ma być traktowany jak
+        // produkt tylko wtedy, gdy zawiera dokładnie 13 cyfr. Bez dopisywania zer.
+        if ("CODE_128".equals(sourceFormat)) return value.length() == 13 ? value : null;
 
         if (value.length() == 13 || value.length() == 8) return value;
 
