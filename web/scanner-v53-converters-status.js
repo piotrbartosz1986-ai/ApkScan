@@ -114,10 +114,9 @@ function renderList(){
   if(!lastLists.length){el.innerHTML='<div class="empty">Nie ma jeszcze wysłanych list.</div>';return}
   el.innerHTML=lastLists.map(function(x){
     var st=normalizedStatus(x.status);
-    return '<div class="convStatusRowV53"><div class="convStatusHeadV53"><div><div class="convStatusFileV53">'+esc(x.file)+'</div><div class="convStatusMetaV53">'+esc(fmtDate(x.received||x.created))+' • '+esc(x.count)+' poz.</div></div><span class="convStatusBadgeV53 '+statusClass(st)+'">'+statusLabel(st)+'</span></div><div class="convStatusActionsV53"><button type="button" data-detail="'+esc(x.file)+'">👁 PODGLĄD</button>'+(st==='READY'?'<button type="button" class="convMarkChangedV53" data-changed="'+esc(x.file)+'">ZAKOŃCZ</button>':'')+'</div></div>';
+    return '<div class="convStatusRowV53"><div class="convStatusHeadV53"><div><div class="convStatusFileV53">'+esc(x.file)+'</div><div class="convStatusMetaV53">'+esc(fmtDate(x.received||x.created))+' • '+esc(x.count)+' poz.</div></div><span class="convStatusBadgeV53 '+statusClass(st)+'">'+statusLabel(st)+'</span></div><div class="convStatusActionsV53"><button type="button" data-detail="'+esc(x.file)+'">👁 PODGLĄD</button>'+(st==='READY'?'<button type="button" class="convMarkChangedV53" data-complete="'+esc(x.file)+'">ZAKOŃCZ</button>':'')+'</div></div>';
   }).join('');
   [].forEach.call(el.querySelectorAll('[data-detail]'),function(b){b.onclick=function(){loadDetail(b.getAttribute('data-detail'))}});
-  [].forEach.call(el.querySelectorAll('[data-changed]'),function(b){b.onclick=function(){markCompleted(b.getAttribute('data-changed'))}});
 }
 function loadDetail(file){
   setMsg('Pobieram listę…','');
@@ -128,13 +127,11 @@ function renderDetail(){
   var l=document.getElementById('bricoConverterStatusListV53'),d=document.getElementById('bricoConverterStatusDetailV53');if(!l||!d)return;
   l.style.display='none';d.style.display='block';
   var x=currentDetail,st=normalizedStatus(x.status),arr=Array.isArray(x.items)?x.items:[];
-  d.innerHTML='<button type="button" class="convDetailBackV53" id="convDetailBackV53">← LISTY</button><div class="convStatusHeadV53"><div><div class="convStatusFileV53">'+esc(x.file)+'</div><div class="convDetailInfoV53">'+esc(fmtDate(x.received||x.created))+' • '+esc(arr.length)+' poz.</div></div><span class="convStatusBadgeV53 '+statusClass(st)+'">'+statusLabel(st)+'</span></div>'+(st==='READY'?'<button type="button" class="convMarkChangedV53" id="convDetailChangedV53" style="width:100%;min-height:36px;margin:6px 0">OZNACZ JAKO ZAKOŃCZONE</button>':'')+'<div>'+arr.map(function(i){return '<div class="convDetailItemV53"><div><div class="convDetailNameV53">'+esc(i.name||('Produkt '+(i.ean||'')))+'</div><div class="convDetailEanV53">'+esc(i.ean||'')+'</div></div><div class="convDetailValueV53">'+esc(fmtNum(i.content))+' '+esc(i.unit||'')+'</div></div>'}).join('')+'</div>';
+  d.innerHTML='<button type="button" class="convDetailBackV53" id="convDetailBackV53">← LISTY</button><div class="convStatusHeadV53"><div><div class="convStatusFileV53">'+esc(x.file)+'</div><div class="convDetailInfoV53">'+esc(fmtDate(x.received||x.created))+' • '+esc(arr.length)+' poz.</div></div><span class="convStatusBadgeV53 '+statusClass(st)+'">'+statusLabel(st)+'</span></div>'+(st==='READY'?'<button type="button" class="convMarkChangedV53" data-complete="'+esc(x.file)+'" style="width:100%;min-height:36px;margin:6px 0">OZNACZ JAKO ZAKOŃCZONE</button>':'')+'<div>'+arr.map(function(i){return '<div class="convDetailItemV53"><div><div class="convDetailNameV53">'+esc(i.name||('Produkt '+(i.ean||'')))+'</div><div class="convDetailEanV53">'+esc(i.ean||'')+'</div></div><div class="convDetailValueV53">'+esc(fmtNum(i.content))+' '+esc(i.unit||'')+'</div></div>'}).join('')+'</div>';
   document.getElementById('convDetailBackV53').onclick=function(){showList();renderList()};
-  var c=document.getElementById('convDetailChangedV53');if(c)c.onclick=function(){markCompleted(x.file)};
 }
 function markCompleted(file){
-  file=clean(file);if(!file)return;
-  if(typeof window.confirm==='function'&&!window.confirm('Potwierdzasz, że zmiana cen/przeliczników została wykonana na dziale i sprawdzona?'))return;
+  file=clean(file);if(!file||requestBusy)return;
   setMsg('Zapisuję status ZAKOŃCZONE…','');
   request({type:'UNIT_CONVERTERS_STATUS',action:'changed',shop:SHOP,file:file},function(){
     for(var i=0;i<lastLists.length;i++)if(lastLists[i].file===file)lastLists[i].status='CHANGED';
@@ -143,10 +140,24 @@ function markCompleted(file){
     var ready=lastLists.filter(function(x){return normalizedStatus(x.status)==='READY'}).length;
     updateStatusButton(ready);
     setMsg('Lista oznaczona jako ZAKOŃCZONE ✓','ok');
+    setTimeout(loadList,250);
   })
 }
 
+function completeClick(e){
+  var target=e.target&&e.target.closest?e.target.closest('[data-complete]'):null;
+  if(!target)return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+  markCompleted(target.getAttribute('data-complete'));
+}
 function refresh(){ensureStyle();ensureUi()}
-function boot(){refresh();document.addEventListener('click',function(){setTimeout(refresh,0)},true);setTimeout(refresh,250);setTimeout(refresh,900)}
+function boot(){
+  refresh();
+  document.addEventListener('click',completeClick,true);
+  document.addEventListener('click',function(){setTimeout(refresh,0)},true);
+  setTimeout(refresh,250);setTimeout(refresh,900)
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
