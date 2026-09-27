@@ -35,9 +35,9 @@ function ensureStyle(){
     .brand.bricoModeBrandV48{width:auto!important;max-width:none!important;min-width:0!important;flex:1 1 auto!important;overflow:hidden!important;text-overflow:clip!important;white-space:nowrap!important}\
     #bricoConverterSendPanelV52{display:none;margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}\
     #bricoConverterSendPanelV52.show{display:block}\
-    #bricoConverterActionsV52{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch}\
+    #bricoConverterActionsV52{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;align-items:stretch}\
+    #bricoConverterClearV52{min-width:104px;min-height:42px;font-size:10px;font-weight:950;color:var(--red)}\
     #bricoConverterSendV52{width:100%;min-height:42px;font-size:11px;font-weight:950}\
-    #bricoConverterClearV52{min-width:92px;min-height:42px;font-size:10px;font-weight:950;color:var(--red)}\
     #bricoConverterSendStatusV52{min-height:15px;margin-top:4px;font-size:8px;font-weight:800;line-height:1.35;color:var(--muted);text-align:center}\
   ';
   document.head.appendChild(s);
@@ -73,6 +73,21 @@ function fixModeMenu(){
   if(converters&&converters.textContent!=='PRZELICZNIKI')converters.textContent='PRZELICZNIKI';
 }
 
+function hideLegacyClear(){
+  var converter=isConverters();
+  var bottom=document.getElementById('clearBottomBtn');
+  if(bottom)bottom.style.setProperty('display',converter?'none':'','important');
+  if(converter){
+    [].forEach.call(document.querySelectorAll('.bottomClear'),function(b){
+      if(b.id!=='bricoConverterClearV52')b.style.setProperty('display','none','important');
+    });
+  }else{
+    [].forEach.call(document.querySelectorAll('.bottomClear'),function(b){
+      if(b.id!=='bricoConverterClearV52')b.style.removeProperty('display');
+    });
+  }
+}
+
 function ensureSendPanel(){
   var list=document.getElementById('bricoConverterListV48');
   if(!list)return false;
@@ -80,7 +95,7 @@ function ensureSendPanel(){
   if(!panel){
     panel=document.createElement('div');
     panel.id='bricoConverterSendPanelV52';
-    panel.innerHTML='<div id="bricoConverterActionsV52"><button type="button" class="primary" id="bricoConverterSendV52">WYŚLIJ PRZELICZNIKI</button><button type="button" class="danger" id="bricoConverterClearV52">WYCZYŚĆ</button></div><div id="bricoConverterSendStatusV52"></div>';
+    panel.innerHTML='<div id="bricoConverterActionsV52"><button type="button" class="danger" id="bricoConverterClearV52">WYCZYŚĆ</button><button type="button" class="primary" id="bricoConverterSendV52">WYŚLIJ PRZELICZNIKI</button></div><div id="bricoConverterSendStatusV52"></div>';
     list.insertAdjacentElement('afterend',panel);
     document.getElementById('bricoConverterSendV52').addEventListener('click',sendConverters);
     document.getElementById('bricoConverterClearV52').addEventListener('click',clearConverters);
@@ -88,6 +103,7 @@ function ensureSendPanel(){
   panel.classList.toggle('show',isConverters());
   var oldBtn=document.getElementById('convSendBtnV51');if(oldBtn)oldBtn.style.display='none';
   var oldStatus=document.getElementById('convSendStatusV51');if(oldStatus)oldStatus.style.display='none';
+  hideLegacyClear();
   return true;
 }
 
@@ -151,7 +167,7 @@ function sendConverters(){
   }catch(e){setStatus('BŁĄD: '+(e.message||e),'error');btn.disabled=false;btn.textContent='WYŚLIJ PRZELICZNIKI';restoreHandler()}
 }
 
-function refresh(){ensureStyle();fixModeMenu();ensureSendPanel();fitBrand()}
+function refresh(){ensureStyle();fixModeMenu();ensureSendPanel();hideLegacyClear();fitBrand()}
 function boot(){
   refresh();
   var brand=document.querySelector('.brand');
@@ -159,7 +175,7 @@ function boot(){
   var menu=document.getElementById('bricoModeMenuV48');
   if(menu&&window.MutationObserver)new MutationObserver(function(){fixModeMenu();fitBrand()}).observe(menu,{childList:true,subtree:true,characterData:true});
   var list=document.getElementById('bricoConverterListV48');
-  if(list&&window.MutationObserver)new MutationObserver(function(){ensureSendPanel();fitBrand()}).observe(list,{childList:true,subtree:true});
+  if(list&&window.MutationObserver)new MutationObserver(function(){ensureSendPanel();hideLegacyClear();fitBrand()}).observe(list,{childList:true,subtree:true});
   if(window.ResizeObserver&&brand)new ResizeObserver(fitBrand).observe(brand.parentElement||brand);
   document.addEventListener('click',function(){setTimeout(refresh,0)},true);
   window.addEventListener('resize',fitBrand);
