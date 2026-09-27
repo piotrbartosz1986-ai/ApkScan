@@ -39,6 +39,7 @@ function ensureStyle(){
     #bricoConverterClearV52{min-width:104px;min-height:42px;font-size:10px;font-weight:950;color:var(--red)}\
     #bricoConverterSendV52{width:100%;min-height:42px;font-size:11px;font-weight:950}\
     #bricoConverterSendStatusV52{min-height:15px;margin-top:4px;font-size:8px;font-weight:800;line-height:1.35;color:var(--muted);text-align:center}\
+    #bricoConverterExportV48{display:none!important}\
   ';
   document.head.appendChild(s);
 }
