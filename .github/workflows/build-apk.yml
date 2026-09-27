@@ -28,67 +28,24 @@ jobs:
           path = Path('app/src/main/java/com/bricolab/scannerbridge/ScannerEngine.java')
           text = path.read_text(encoding='utf-8')
 
-          old_normalize = '''        String value = raw.trim();
-          if (value.isEmpty()) return null;
+          needle = '        if (value.isEmpty()) return null;\n\n        for (int i = 0; i < value.length(); i++) {'
+          replacement = '        if (value.isEmpty()) return null;\n\n        // ML Kit dla GS1-128 może zwrócić identyfikator AIM "]C1" przed właściwymi danymi.\n        // Prefiks nie jest częścią EAN-u produktu, więc zdejmujemy go dopiero po RAW diagnostyce.\n        if ("CODE_128".equals(sourceFormat) && value.startsWith("]C1")) {\n            value = value.substring(3);\n        }\n\n        for (int i = 0; i < value.length(); i++) {'
+          if needle not in text:
+              raise SystemExit('Nie znaleziono miejsca normalizacji GS1')
+          text = text.replace(needle, replacement, 1)
 
-          for (int i = 0; i < value.length(); i++) {
-              if (!Character.isDigit(value.charAt(i))) return null;
-          }
+          source_line = '                    boolean sourceIsRealEan = "EAN_13".equals(sourceFormat) || "EAN_8".equals(sourceFormat);'
+          gs1_lines = source_line + '\n                    boolean sourceIsGs1Code128 = "CODE_128".equals(sourceFormat) &&\n                            raw.startsWith("]C1") && code.length() == 13;'
+          if source_line not in text:
+              raise SystemExit('Nie znaleziono sourceIsRealEan')
+          text = text.replace(source_line, gs1_lines, 1)
 
-          if ("EAN_13".equals(sourceFormat)) return value.length() == 13 ? value : null;
-          if ("EAN_8".equals(sourceFormat)) return value.length() == 8 ? value : null;
+          old_if = '                    if (sourceIsRealEan && config.validateEanChecksum && !isValidEan(code, productFormat)) {'
+          new_if = '                    if ((sourceIsRealEan || sourceIsGs1Code128) &&\n                            config.validateEanChecksum && !isValidEan(code, productFormat)) {'
+          if old_if not in text:
+              raise SystemExit('Nie znaleziono warunku checksum')
+          text = text.replace(old_if, new_if, 1)
 
-          // Ustalona zasada dla cenówek z systemu: CODE_128 ma być traktowany jak
-          // produkt tylko wtedy, gdy zawiera dokładnie 13 cyfr. Bez dopisywania zer.
-          if ("CODE_128".equals(sourceFormat)) return value.length() == 13 ? value : null;'''
-
-          new_normalize = '''        String value = raw.trim();
-          if (value.isEmpty()) return null;
-
-          // ML Kit dla GS1-128 może zwrócić identyfikator AIM "]C1" przed właściwymi
-          // danymi. Nie jest on częścią EAN-u produktu, więc zdejmujemy go dopiero
-          // po RAW diagnostyce, przed walidacją wejścia do listy.
-          if ("CODE_128".equals(sourceFormat) && value.startsWith("]C1")) {
-              value = value.substring(3);
-          }
-
-          for (int i = 0; i < value.length(); i++) {
-              if (!Character.isDigit(value.charAt(i))) return null;
-          }
-
-          if ("EAN_13".equals(sourceFormat)) return value.length() == 13 ? value : null;
-          if ("EAN_8".equals(sourceFormat)) return value.length() == 8 ? value : null;
-
-          // CODE_128 / GS1-128 trafia do listy produktów tylko wtedy, gdy po usunięciu
-          // opcjonalnego prefiksu ]C1 pozostaje dokładnie 13 cyfr.
-          if ("CODE_128".equals(sourceFormat)) return value.length() == 13 ? value : null;'''
-
-          old_checksum = '''                    String productFormat = code.length() == 8 ? "EAN_8" : "EAN_13";
-          boolean sourceIsRealEan = "EAN_13".equals(sourceFormat) || "EAN_8".equals(sourceFormat);
-
-          // Cenówki systemowe są często CODE_128 z 13 cyframi. To identyfikator
-          // produktu, ale nie wolno odrzucać go tylko dlatego, że źródłowa
-          // symbologia nie jest EAN. Checksum EAN sprawdzamy wyłącznie dla
-          // kodów faktycznie odczytanych przez ML Kit jako EAN_13 / EAN_8.
-          if (sourceIsRealEan && config.validateEanChecksum && !isValidEan(code, productFormat)) {'''
-
-          new_checksum = '''                    String productFormat = code.length() == 8 ? "EAN_8" : "EAN_13";
-          boolean sourceIsRealEan = "EAN_13".equals(sourceFormat) || "EAN_8".equals(sourceFormat);
-          boolean sourceIsGs1Code128 = "CODE_128".equals(sourceFormat) &&
-                  raw.startsWith("]C1") && code.length() == 13;
-
-          // EAN-y oraz GS1-128 zapisany przez ML Kit jako ]C1 + 13 cyfr przechodzą
-          // tę samą kontrolę cyfry kontrolnej EAN przed zasadą 3 kolejnych odczytów.
-          if ((sourceIsRealEan || sourceIsGs1Code128) &&
-                  config.validateEanChecksum && !isValidEan(code, productFormat)) {'''
-
-          if old_normalize not in text:
-              raise SystemExit('Nie znaleziono bloku normalizeProductCode do podmiany')
-          if old_checksum not in text:
-              raise SystemExit('Nie znaleziono bloku checksum do podmiany')
-
-          text = text.replace(old_normalize, new_normalize, 1)
-          text = text.replace(old_checksum, new_checksum, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
