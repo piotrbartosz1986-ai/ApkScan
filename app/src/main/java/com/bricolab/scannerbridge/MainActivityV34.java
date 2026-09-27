@@ -1,15 +1,18 @@
 package com.bricolab.scannerbridge;
 
-import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.ClipDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
 
 import androidx.camera.view.PreviewView;
 
@@ -18,16 +21,17 @@ import org.json.JSONObject;
 import java.lang.reflect.Field;
 
 /**
- * v3.2.3 camera bridge.
- *
- * START/STOP overlay buttons are deliberately NOT overridden here.
- * They use MainActivity's original direct requestScannerStart() path.
- * The settings checkbox uses the same NativeBridge.startScanner() path.
+ * Stable camera bridge with the approved compact overlay controls.
  */
 public class MainActivityV34 extends MainActivityV25 {
 
     private static final int ACTIVE_GREEN = Color.rgb(30, 125, 71);
     private static final int INACTIVE_RED = Color.rgb(168, 50, 50);
+    private static final int ZOOM_GREEN = Color.rgb(54, 146, 127); // #36927F
+
+    // Approved values: background only is transparent. Text/icon/border stay fully opaque.
+    private static final int CONTROL_BG_ALPHA = 64; // 25%
+    private static final int ZOOM_LABEL_BG_ALPHA = 26; // 10%
 
     private boolean previewVisible = true;
 
@@ -37,7 +41,6 @@ public class MainActivityV34 extends MainActivityV25 {
 
         PreviewView preview = findViewById(R.id.previewView);
         if (preview != null) {
-            // Exact implementation mode used by the earlier working preview build.
             preview.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
         }
 
@@ -47,14 +50,10 @@ public class MainActivityV34 extends MainActivityV25 {
             webView.addJavascriptInterface(new StableNativeBridge(), "NativeScanner");
         }
 
-        applyZoomThumbStyle();
+        applyApprovedOverlayStyle();
         paintButtons();
     }
 
-    /**
-     * Same base bridge as the old working version. Only preview visibility,
-     * full stop and one-tap torch startup are adjusted.
-     */
     public class StableNativeBridge extends NativeBridge {
 
         @Override
@@ -64,8 +63,6 @@ public class MainActivityV34 extends MainActivityV25 {
                 FrameLayout container = findViewById(R.id.cameraContainer);
                 if (container != null) container.setVisibility(View.VISIBLE);
                 previewVisible = true;
-                // Calls MainActivity.NativeBridge.startScanner(), which in turn
-                // calls the original requestScannerStart().
                 StableNativeBridge.super.startScanner();
             });
         }
@@ -89,8 +86,6 @@ public class MainActivityV34 extends MainActivityV25 {
 
                 if (visible) {
                     if (container != null) container.setVisibility(View.VISIBLE);
-                    // Reproduce the old checkbox model, but also start the camera
-                    // so this checkbox is a real independent recovery path.
                     StableNativeBridge.super.startScanner();
                 } else {
                     if (engine != null) engine.stop();
@@ -142,7 +137,7 @@ public class MainActivityV34 extends MainActivityV25 {
         super.onState(stateJson);
         runOnUiThread(() -> {
             paintButtons();
-            applyZoomThumbStyle();
+            applyApprovedOverlayStyle();
         });
     }
 
@@ -167,20 +162,57 @@ public class MainActivityV34 extends MainActivityV25 {
         contextBox.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
-    private void applyZoomThumbStyle() {
-        ScannerEngine engine = scannerEngine();
-        SeekBar seek = findViewById(R.id.zoomSeek);
-        if (engine == null || seek == null) return;
+    private void applyApprovedOverlayStyle() {
+        applyZoomStyle();
+        applyZoomLabelStyle();
+    }
 
-        int dp = Math.max(16, Math.min(56, engine.getConfig().zoomThumbDp));
-        int px = Math.max(1, Math.round(dp * getResources().getDisplayMetrics().density));
+    private void applyZoomStyle() {
+        SeekBar seek = findViewById(R.id.zoomSeek);
+        if (seek == null) return;
+
+        int thumbPx = dp(22);
         GradientDrawable thumb = new GradientDrawable();
         thumb.setShape(GradientDrawable.OVAL);
         thumb.setColor(Color.WHITE);
-        thumb.setStroke(Math.max(1, px / 12), Color.argb(180, 20, 24, 29));
-        thumb.setSize(px, px);
+        thumb.setStroke(dp(1), Color.rgb(20, 24, 29));
+        thumb.setSize(thumbPx, thumbPx);
         seek.setThumb(thumb);
-        seek.setThumbOffset(px / 2);
+        seek.setThumbOffset(thumbPx / 2);
+        seek.setAlpha(1f);
+
+        GradientDrawable trackBg = new GradientDrawable();
+        trackBg.setShape(GradientDrawable.RECTANGLE);
+        trackBg.setCornerRadius(dp(4));
+        trackBg.setColor(ZOOM_GREEN);
+
+        GradientDrawable trackProgress = new GradientDrawable();
+        trackProgress.setShape(GradientDrawable.RECTANGLE);
+        trackProgress.setCornerRadius(dp(4));
+        trackProgress.setColor(ZOOM_GREEN);
+
+        ClipDrawable clippedProgress = new ClipDrawable(trackProgress, Gravity.START, ClipDrawable.HORIZONTAL);
+        LayerDrawable layers = new LayerDrawable(new android.graphics.drawable.Drawable[]{trackBg, clippedProgress});
+        layers.setId(0, android.R.id.background);
+        layers.setId(1, android.R.id.progress);
+        layers.setLayerHeight(0, dp(8));
+        layers.setLayerHeight(1, dp(8));
+        layers.setLayerGravity(0, Gravity.CENTER_VERTICAL);
+        layers.setLayerGravity(1, Gravity.CENTER_VERTICAL);
+        seek.setProgressDrawable(layers);
+    }
+
+    private void applyZoomLabelStyle() {
+        TextView label = findViewById(R.id.zoomLabel);
+        if (label == null) return;
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(dp(4));
+        bg.setColor(Color.argb(ZOOM_LABEL_BG_ALPHA, 0, 0, 0));
+        bg.setStroke(dp(1), Color.WHITE);
+        label.setBackground(bg);
+        label.setTextColor(Color.WHITE);
+        label.setAlpha(1f);
     }
 
     private void paintButtons() {
@@ -193,15 +225,32 @@ public class MainActivityV34 extends MainActivityV25 {
         boolean torchOn = engine.isTorchOn();
 
         if (start != null) {
+            int color = active ? ACTIVE_GREEN : INACTIVE_RED;
             start.setText(active ? "STOP" : "START");
-            start.setBackgroundTintList(ColorStateList.valueOf(active ? ACTIVE_GREEN : INACTIVE_RED));
-            start.setAlpha(0.35f);
+            start.setTextColor(Color.WHITE);
+            start.setAlpha(1f);
+            start.setBackground(controlBackground(color));
         }
         if (torch != null) {
+            int color = torchOn ? ACTIVE_GREEN : INACTIVE_RED;
             torch.setText("🔦");
-            torch.setBackgroundTintList(ColorStateList.valueOf(torchOn ? ACTIVE_GREEN : INACTIVE_RED));
-            torch.setAlpha(0.35f);
+            torch.setTextColor(Color.WHITE);
+            torch.setAlpha(1f);
+            torch.setBackground(controlBackground(color));
         }
+    }
+
+    private GradientDrawable controlBackground(int color) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(dp(4));
+        bg.setColor(Color.argb(CONTROL_BG_ALPHA, Color.red(color), Color.green(color), Color.blue(color)));
+        bg.setStroke(dp(1), color);
+        return bg;
+    }
+
+    private int dp(int value) {
+        return Math.max(1, Math.round(value * getResources().getDisplayMetrics().density));
     }
 
     private ScannerEngine scannerEngine() {
