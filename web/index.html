@@ -44,11 +44,10 @@
     localText('scanner-v48-converters-extension.js',true),
     localText('scanner-v49-converters-units.js',true),
     localText('scanner-v50-converters-product-ui.js',true),
-    localText('scanner-v51-converters-send.js',true)
+    localText('scanner-v51-converters-send.js',true),
+    localText('scanner-v52-converters-mode-ui.js',true)
   ]).then(function(parts){
     var html=parts[0];
-    // ScannerConfig po stronie APK obsługuje pełną listę formatów. Zapisujemy
-    // nową wersję configu, żeby odróżnić go od starych ustawień tylko EAN.
     html=html.replace('version:8,','version:10,');
 
     var extensions=parts.slice(1).filter(Boolean).map(function(code){
