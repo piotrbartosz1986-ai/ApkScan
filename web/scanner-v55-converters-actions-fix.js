@@ -5,7 +5,6 @@ var STORE_KEY='brico.converters.items.v48';
 var TOKEN_KEY='brico.upload.token';
 var SHOP='08042';
 var CONVERTERS_ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_converters.php';
-var STATUS_ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_converters_status.php';
 var busy=false;
 var restoreHandler=null;
 var timer=0;
@@ -19,15 +18,10 @@ function setSendStatus(text,state){
   e.textContent=text||'';
   e.style.color=state==='ok'?'#36d27f':state==='error'?'#ff6969':'var(--muted)';
 }
-function setStatusMsg(text,state){
-  var e=document.getElementById('bricoConverterStatusMsgV53');
-  if(!e)return;
-  e.textContent=text||'';
-  e.style.color=state==='ok'?'#36d27f':state==='error'?'#ff6969':'var(--muted)';
-}
 function resetNative(){
   if(timer){clearTimeout(timer);timer=0}
-  if(restoreHandler!==null){window.onNativeUploadResult=restoreHandler;restoreHandler=null}
+  window.onNativeUploadResult=restoreHandler;
+  restoreHandler=null;
   busy=false;
 }
 function displayedName(code,fallback){
@@ -64,11 +58,7 @@ function clearConverters(){
   }
 
   var left=document.querySelectorAll('#bricoConverterListV48 .bricoConvRowV48').length;
-  if(left===0){
-    setSendStatus('Wyczyszczono listę przeliczników.','ok');
-  }else{
-    setSendStatus('Nie udało się wyczyścić całej listy.','error');
-  }
+  setSendStatus(left===0?'Wyczyszczono listę przeliczników.':'Nie udało się wyczyścić całej listy.',left===0?'ok':'error');
 }
 function sendConverters(){
   if(busy)return;
@@ -82,7 +72,7 @@ function sendConverters(){
   busy=true;
   if(btn){btn.disabled=true;btn.textContent='WYSYŁAM…'}
   setSendStatus('Wysyłanie '+list.length+' pozycji…','');
-  restoreHandler=window.onNativeUploadResult||null;
+  restoreHandler=typeof window.onNativeUploadResult==='function'?window.onNativeUploadResult:null;
   window.onNativeUploadResult=function(result){
     var server=result&&result.server?result.server:{};
     if(server&&(server.kind==='UNIT_CONVERTERS'||server.type==='UNIT_CONVERTERS'||server.converterUpload===true)){
@@ -107,61 +97,14 @@ function sendConverters(){
     resetNative();setSendStatus('BŁĄD: '+(e.message||e),'error');if(btn){btn.disabled=false;btn.textContent='WYŚLIJ PRZELICZNIKI'}
   }
 }
-function fileFromChangedButton(btn){
-  if(!btn)return'';
-  var f=clean(btn.getAttribute&&btn.getAttribute('data-changed'));
-  if(f)return f;
-  var detail=btn.closest&&btn.closest('#bricoConverterStatusDetailV53');
-  if(detail){
-    var title=detail.querySelector('.convStatusFileV53');
-    return clean(title&&title.textContent);
-  }
-  return'';
-}
-function refreshStatuses(){
-  var close=document.getElementById('bricoConverterStatusCloseV53');
-  if(close)close.click();
-  setTimeout(function(){var b=document.getElementById('bricoConverterStatusBtnV53');if(b)b.click()},180);
-}
-function markChanged(file){
-  if(busy||!file)return;
-  if(typeof window.confirm==='function'&&!window.confirm('Potwierdzasz, że ceny zostały zmienione na dziale i sprawdzone?'))return;
-  var t=token();
-  if(!t){setStatusMsg('Brak klucza BricoLab — ustaw go pod ⚙.','error');return}
-  if(!window.BricoUpload||typeof window.BricoUpload.uploadJson!=='function'){setStatusMsg('Brak natywnego modułu połączenia.','error');return}
-
-  busy=true;
-  setStatusMsg('Zapisuję status ZMIENIONE…','');
-  restoreHandler=window.onNativeUploadResult||null;
-  window.onNativeUploadResult=function(result){
-    var server=result&&result.server?result.server:{};
-    if(server&&server.kind==='UNIT_CONVERTERS_STATUS'){
-      var ok=!!(result&&result.ok&&server.ok);
-      var err=(result&&result.error)||(server&&server.error)||(result&&result.body)||'Błąd serwera';
-      resetNative();
-      if(ok){setStatusMsg('Oznaczono jako ZMIENIONE ✓','ok');setTimeout(refreshStatuses,180)}
-      else setStatusMsg('BŁĄD: '+err,'error');
-      return;
-    }
-    if(typeof restoreHandler==='function')restoreHandler(result);
-  };
-  try{
-    window.BricoUpload.uploadJson(STATUS_ENDPOINT,t,JSON.stringify({type:'UNIT_CONVERTERS_STATUS',action:'changed',shop:SHOP,file:file}));
-    timer=setTimeout(function(){resetNative();setStatusMsg('Brak odpowiedzi serwera statusów.','error')},20000);
-  }catch(e){resetNative();setStatusMsg('BŁĄD: '+(e.message||e),'error')}
-}
 
 function intercept(e){
-  var target=e.target&&e.target.closest?e.target.closest('#bricoConverterClearV52,#bricoConverterSendV52,.convMarkChangedV53,#convDetailChangedV53'):null;
+  var target=e.target&&e.target.closest?e.target.closest('#bricoConverterClearV52,#bricoConverterSendV52'):null;
   if(!target)return;
-
   e.preventDefault();
   e.stopPropagation();
   if(e.stopImmediatePropagation)e.stopImmediatePropagation();
-
-  if(target.id==='bricoConverterClearV52'){clearConverters();return}
-  if(target.id==='bricoConverterSendV52'){sendConverters();return}
-  markChanged(fileFromChangedButton(target));
+  if(target.id==='bricoConverterClearV52')clearConverters();else sendConverters();
 }
 
 document.addEventListener('click',intercept,true);
