@@ -17,8 +17,8 @@ jobs:
       - name: Ustaw web i numer APK
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/diagnostic-d-old-camera-native-controls/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 108/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.9-six-read-manual-entry"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 109/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.10-v339-layout-correct-base"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-V3.3.9-six-read-manual-entry-apk
+          name: BricoScanner-V3.3.10-v339-layout-correct-base-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
