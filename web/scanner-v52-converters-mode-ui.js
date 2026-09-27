@@ -35,7 +35,9 @@ function ensureStyle(){
     .brand.bricoModeBrandV48{width:auto!important;max-width:none!important;min-width:0!important;flex:1 1 auto!important;overflow:hidden!important;text-overflow:clip!important;white-space:nowrap!important}\
     #bricoConverterSendPanelV52{display:none;margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}\
     #bricoConverterSendPanelV52.show{display:block}\
+    #bricoConverterActionsV52{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch}\
     #bricoConverterSendV52{width:100%;min-height:42px;font-size:11px;font-weight:950}\
+    #bricoConverterClearV52{min-width:92px;min-height:42px;font-size:10px;font-weight:950;color:var(--red)}\
     #bricoConverterSendStatusV52{min-height:15px;margin-top:4px;font-size:8px;font-weight:800;line-height:1.35;color:var(--muted);text-align:center}\
   ';
   document.head.appendChild(s);
@@ -78,14 +80,29 @@ function ensureSendPanel(){
   if(!panel){
     panel=document.createElement('div');
     panel.id='bricoConverterSendPanelV52';
-    panel.innerHTML='<button type="button" class="primary" id="bricoConverterSendV52">WYŚLIJ PRZELICZNIKI</button><div id="bricoConverterSendStatusV52"></div>';
+    panel.innerHTML='<div id="bricoConverterActionsV52"><button type="button" class="primary" id="bricoConverterSendV52">WYŚLIJ PRZELICZNIKI</button><button type="button" class="danger" id="bricoConverterClearV52">WYCZYŚĆ</button></div><div id="bricoConverterSendStatusV52"></div>';
     list.insertAdjacentElement('afterend',panel);
     document.getElementById('bricoConverterSendV52').addEventListener('click',sendConverters);
+    document.getElementById('bricoConverterClearV52').addEventListener('click',clearConverters);
   }
   panel.classList.toggle('show',isConverters());
   var oldBtn=document.getElementById('convSendBtnV51');if(oldBtn)oldBtn.style.display='none';
   var oldStatus=document.getElementById('convSendStatusV51');if(oldStatus)oldStatus.style.display='none';
   return true;
+}
+
+function clearConverters(){
+  var count=items().length;
+  if(!count){setStatus('Lista przeliczników jest już pusta.','');return}
+  if(typeof window.confirm==='function'&&!window.confirm('Wyczyścić wszystkie '+count+' przeliczników?'))return;
+  var guard=0;
+  while(guard<10000){
+    var del=document.querySelector('#bricoConverterListV48 .bricoConvDelV48');
+    if(!del)break;
+    del.click();
+    guard++;
+  }
+  setStatus('Wyczyszczono listę przeliczników.','ok');
 }
 
 function setStatus(text,state){
