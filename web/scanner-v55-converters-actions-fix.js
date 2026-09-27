@@ -46,7 +46,6 @@ function sendPayload(){
 function clearConverters(){
   var count=items().length;
   if(!count){setSendStatus('Lista przeliczników jest już pusta.','');return}
-  if(typeof window.confirm==='function'&&!window.confirm('Wyczyścić wszystkie '+count+' przeliczników?'))return;
 
   var guard=0;
   while(guard<10000){
