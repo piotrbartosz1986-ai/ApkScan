@@ -20,6 +20,13 @@
     e.style.fontWeight=ok===false?'800':'400';
   }
 
+  function settingsStatus(msg,ok){
+    var e=document.getElementById('bricoConnectionSaveStatus');
+    if(!e)return;
+    e.textContent=msg||'';
+    e.style.color=ok===true?'#36d27f':ok===false?'#ff6969':'#9aa5b1';
+  }
+
   function collectVisibleItems(){
     return [].slice.call(document.querySelectorAll('#scanList .item')).map(function(row){
       var code=row.querySelector('.code');
@@ -54,13 +61,42 @@
   }
 
   function saveSettings(){
-    var endpoint=(document.getElementById('bricoEndpointInput').value||'').trim();
-    var token=(document.getElementById('bricoTokenInput').value||'').trim();
-    if(!endpoint||endpoint.indexOf('https://')!==0){status('Adres musi zaczynać się od https://',false);return;}
-    if(!token){status('Wpisz klucz wysyłania.',false);return;}
-    localStorage.setItem(ENDPOINT_KEY,endpoint);
-    localStorage.setItem(TOKEN_KEY,token);
+    var endpointInput=document.getElementById('bricoEndpointInput');
+    var tokenInput=document.getElementById('bricoTokenInput');
+    var btn=document.getElementById('bricoSaveSettings');
+    if(!endpointInput||!tokenInput){
+      settingsStatus('Błąd formularza połączenia.',false);
+      status('Błąd formularza połączenia.',false);
+      return;
+    }
+    var endpoint=(endpointInput.value||'').trim();
+    var token=(tokenInput.value||'').trim();
+    if(!endpoint||endpoint.indexOf('https://')!==0){
+      settingsStatus('Adres musi zaczynać się od https://',false);
+      status('Adres musi zaczynać się od https://',false);
+      return;
+    }
+    if(!token){
+      settingsStatus('Wpisz klucz wysyłania.',false);
+      status('Wpisz klucz wysyłania.',false);
+      return;
+    }
+    try{
+      localStorage.setItem(ENDPOINT_KEY,endpoint);
+      localStorage.setItem(TOKEN_KEY,token);
+    }catch(e){
+      settingsStatus('Nie udało się zapisać ustawień.',false);
+      status('Nie udało się zapisać ustawień.',false);
+      return;
+    }
+    fillSettings();
+    settingsStatus('Zapisano połączenie ✓',true);
     status('Wysyłanie gotowe • '+(hasNativeUpload()?'JAVA':'FETCH'),true);
+    if(btn){
+      btn.textContent='ZAPISANO ✓';
+      clearTimeout(btn._bricoSaveTimer);
+      btn._bricoSaveTimer=setTimeout(function(){btn.textContent='ZAPISZ POŁĄCZENIE';},1400);
+    }
   }
 
   function resetButton(delay){
@@ -155,12 +191,23 @@
         +'<div class="settingTitle">Połączenie z BricoLab</div>'
         +'<div class="field"><label>Adres wysyłania HTTPS</label><input id="bricoEndpointInput" type="text" autocomplete="off"></div>'
         +'<div class="field" style="margin-top:6px"><label>Klucz wysyłania / bazy</label><input id="bricoTokenInput" type="password" autocomplete="off" style="width:100%;height:35px;border-radius:8px;border:1px solid #29313a;background:#0b0f13;color:#f5f7fa;padding:5px 7px;font-size:12px"></div>'
-        +'<button id="bricoSaveSettings" type="button" class="primary" style="width:100%;margin-top:7px">ZAPISZ POŁĄCZENIE</button>';
+        +'<button id="bricoSaveSettings" type="button" class="primary" style="width:100%;margin-top:7px;position:relative;z-index:2;pointer-events:auto">ZAPISZ POŁĄCZENIE</button>'
+        +'<div id="bricoConnectionSaveStatus" style="min-height:16px;margin-top:5px;font-size:9px;font-weight:800"></div>';
       actions.parentNode.insertBefore(sec,actions);
       fillSettings();
-      document.getElementById('bricoSaveSettings').onclick=saveSettings;
     }
   }
+
+  // Delegowany handler jest odporny na późniejsze przebudowanie zawartości ustawień
+  // przez inne rozszerzenia UI w WebView.
+  document.addEventListener('click',function(e){
+    var target=e.target;
+    var btn=target&&target.closest?target.closest('#bricoSaveSettings'):null;
+    if(!btn)return;
+    e.preventDefault();
+    e.stopPropagation();
+    saveSettings();
+  },true);
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
