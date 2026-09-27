@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "duplicateDelayMs": 1500,
   "releaseDelayMs": 550,
   "focusIntervalMs": 1800,
@@ -8,7 +8,7 @@
   "padNumericTo13": true,
   "extraDigitalZoomMax": 3,
   "contextPreview": false,
-  "validConfirmReads": 3,
+  "validConfirmReads": 6,
   "validResetMs": 700,
   "invalidConfirmReads": 3,
   "invalidResetMs": 700,
