@@ -4,6 +4,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
+const UNDO_SECONDS = 60;
+
 function out(int $code, array $data): never {
     http_response_code($code);
     echo json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
@@ -53,6 +55,13 @@ function write_status(string $shop,string $file,array $patch): bool {
     $json=json_encode($state,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
     return $json!==false && @file_put_contents(status_path($shop,$file),$json,LOCK_EX)!==false;
 }
+function seconds_left(?string $iso): int {
+    if(!$iso) return 0;
+    $ts=strtotime($iso);
+    if($ts===false) return 0;
+    $left=UNDO_SECONDS-(time()-$ts);
+    return max(0,min(UNDO_SECONDS,$left));
+}
 function batch_summary(string $shop,string $file,bool $withItems=false): ?array {
     $path=data_path($shop,$file);
     if($path===null) return null;
@@ -60,18 +69,38 @@ function batch_summary(string $shop,string $file,bool $withItems=false): ?array 
     if(!is_array($data)) return null;
     $items=is_array($data['items']??null)?$data['items']:[];
     $state=read_status($shop,$file);
+    $subject=trim((string)($data['subject']??''));
+    $worker=trim((string)($data['worker']??''));
+    $department=trim((string)($data['department']??''));
+    $title=trim((string)($data['title']??''));
+    if($title==='' && ($subject!==''||$worker!==''||$department!=='')){
+        $parts=array_values(array_filter([$subject,$worker,$department],static fn(string $v):bool=>$v!==''));
+        $title=implode(' — ',$parts);
+    }
+    if($title==='') $title=basename($file);
+    $undoReady=$state['status']==='READY'?seconds_left(is_string($state['readyAt']??null)?$state['readyAt']:null):0;
+    $undoChanged=$state['status']==='CHANGED'?seconds_left(is_string($state['changedAt']??null)?$state['changedAt']:null):0;
     $row=[
         'file'=>basename($file),
+        'title'=>$title,
+        'subject'=>$subject,
+        'worker'=>$worker,
+        'department'=>$department,
         'created'=>(string)($data['created']??''),
         'received'=>(string)($data['received']??''),
         'device'=>(string)($data['device']??''),
         'shop'=>(string)($data['shop']??$shop),
         'count'=>count($items),
         'status'=>$state['status'],
+        'statusInfo'=>$state,
         'updatedAt'=>$state['updatedAt']??null,
         'readyAt'=>$state['readyAt']??null,
         'changedAt'=>$state['changedAt']??null,
         'changedBy'=>$state['changedBy']??null,
+        'canUndoReady'=>$undoReady>0,
+        'undoReadySeconds'=>$undoReady,
+        'canUndoChanged'=>$undoChanged>0,
+        'undoChangedSeconds'=>$undoChanged,
     ];
     if($withItems) $row['items']=$items;
     return $row;
@@ -127,7 +156,27 @@ if($action==='changed'){
     if($current!=='READY') out(409,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'not_ready','status'=>$current]);
     $now=gmdate('c');
     if(!write_status($shop,$file,['status'=>'CHANGED','updatedAt'=>$now,'changedAt'=>$now,'changedBy'=>'scanner'])) out(500,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'status_write_failed']);
-    out(200,['ok'=>true,'kind'=>'UNIT_CONVERTERS_STATUS','action'=>'changed','file'=>$file,'status'=>'CHANGED']);
+    out(200,['ok'=>true,'kind'=>'UNIT_CONVERTERS_STATUS','action'=>'changed','file'=>$file,'status'=>'CHANGED','canUndoChanged'=>true,'undoChangedSeconds'=>UNDO_SECONDS]);
+}
+
+if($action==='undo_changed'){
+    $state=read_status($shop,$file);
+    if(($state['status']??'')!=='CHANGED') out(409,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'not_changed','status'=>$state['status']??'NEW']);
+    $left=seconds_left(is_string($state['changedAt']??null)?$state['changedAt']:null);
+    if($left<=0) out(409,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'undo_window_expired']);
+    $now=gmdate('c');
+    if(!write_status($shop,$file,['status'=>'READY','updatedAt'=>$now,'changedAt'=>null,'changedBy'=>null])) out(500,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'status_write_failed']);
+    out(200,['ok'=>true,'kind'=>'UNIT_CONVERTERS_STATUS','action'=>'undo_changed','file'=>$file,'status'=>'READY']);
+}
+
+if($action==='undo_ready'){
+    $state=read_status($shop,$file);
+    if(($state['status']??'')!=='READY') out(409,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'not_ready','status'=>$state['status']??'NEW']);
+    $left=seconds_left(is_string($state['readyAt']??null)?$state['readyAt']:null);
+    if($left<=0) out(409,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'undo_window_expired']);
+    $now=gmdate('c');
+    if(!write_status($shop,$file,['status'=>'NEW','updatedAt'=>$now,'readyAt'=>null])) out(500,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'status_write_failed']);
+    out(200,['ok'=>true,'kind'=>'UNIT_CONVERTERS_STATUS','action'=>'undo_ready','file'=>$file,'status'=>'NEW']);
 }
 
 out(400,['ok'=>false,'kind'=>'UNIT_CONVERTERS_STATUS','error'=>'invalid_action']);
