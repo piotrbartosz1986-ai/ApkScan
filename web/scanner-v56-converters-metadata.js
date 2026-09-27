@@ -104,14 +104,14 @@ function ensureStyle(){
   s.textContent='\
     #bricoConverterMetaV56{display:none;margin:4px 0 8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}\
     #bricoConverterMetaV56.show{display:block}\
-    #bricoConverterMetaV56 .metaGridV56{display:grid;grid-template-columns:1fr 1fr;gap:6px}\
-    #bricoConverterMetaV56 .metaFieldV56 label{display:block;margin:0 0 3px;font-size:8px;font-weight:950;letter-spacing:.05em;color:var(--muted)}\
-    #bricoConverterMetaV56 input,#bricoConverterMetaV56 select{width:100%;height:34px;border:1px solid var(--line);border-radius:8px;background:#0b0f13;color:var(--text);padding:4px 7px;font-size:11px;font-weight:800;outline:none}\
-    #bricoConverterMetaV56 .wideV56{grid-column:1/-1}\
+    #bricoConverterMetaV56 .metaGridV56{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,.95fr);gap:4px;align-items:end}\
+    #bricoConverterMetaV56 .metaFieldV56{min-width:0}\
+    #bricoConverterMetaV56 .metaFieldV56 label{display:block;margin:0 0 3px;font-size:7px;font-weight:950;letter-spacing:.03em;color:var(--muted);white-space:nowrap}\
+    #bricoConverterMetaV56 input,#bricoConverterMetaV56 select{width:100%;min-width:0;height:34px;border:1px solid var(--line);border-radius:8px;background:#0b0f13;color:var(--text);padding:4px 5px;font-size:9.5px;font-weight:800;outline:none}\
+    #bricoConverterMetaV56 .wideV56{grid-column:auto}\
     #bricoConverterMetaV56 .reqV56{color:#ff6969}\
     #bricoConverterSendV56{width:100%;min-height:42px;font-size:11px;font-weight:950}\
     html[data-brico-theme="light"] #bricoConverterMetaV56 input,html[data-brico-theme="light"] #bricoConverterMetaV56 select{background:#fff!important;color:var(--text)!important}\
-    @media(max-width:430px){#bricoConverterMetaV56 .metaGridV56{grid-template-columns:1fr}}\
   ';
   document.head.appendChild(s);
 }
