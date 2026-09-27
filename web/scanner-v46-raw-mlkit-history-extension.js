@@ -34,7 +34,7 @@
       +'<div class="settingTitle" style="margin:0">HISTORIA ML KIT — RAW <span id="'+COUNT_ID+'"></span></div>'
       +'<button type="button" id="bricoRawMlKitClearV46" style="min-height:26px;padding:3px 7px;font-size:8px">WYCZYŚĆ</button>'
       +'</div>'
-      +'<div style="font-size:8px;color:var(--muted);line-height:1.35;margin-bottom:7px">To jest dokładnie to, co rozpozna ML Kit <b>przed ROI, wyborem formatów, kontrolą długości, cyfrą kontrolną i zasadą 3 odczytów</b>. Checkboksy niżej decydują tylko, co może wejść do listy.</div>'
+      +'<div style="font-size:8px;color:var(--muted);line-height:1.35;margin-bottom:7px">To jest dokładnie to, co rozpozna ML Kit <b>przed ROI, wyborem formatów, kontrolą długości, cyfrą kontrolną i potwierdzaniem kolejnych odczytów</b>. Checkboksy niżej decydują tylko, co może wejść do listy.</div>'
       +'<div id="'+LIST_ID+'" style="max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font:700 9px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;padding:6px"></div>';
     actions.parentNode.insertBefore(sec,actions);
     var clear=document.getElementById('bricoRawMlKitClearV46');
