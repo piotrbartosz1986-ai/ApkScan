@@ -255,7 +255,11 @@ final class BricoAuthClient {
         connection.setRequestProperty("Cache-Control", "no-store");
         connection.setRequestProperty("User-Agent", "BricoScannerAuth/" + BuildConfig.VERSION_NAME);
         if (bearer != null && !bearer.trim().isEmpty()) {
-            connection.setRequestProperty("Authorization", "Bearer " + bearer.trim());
+            String token = bearer.trim();
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            // OVH shared hosting can strip the standard Authorization header before PHP.
+            // Send the same short-lived access token in an application-specific header as a fallback.
+            connection.setRequestProperty("X-BricoLab-Access-Token", token);
         }
 
         if (body != null) {
