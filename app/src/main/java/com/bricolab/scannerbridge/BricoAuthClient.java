@@ -88,11 +88,18 @@ final class BricoAuthClient {
 
     synchronized JSONObject verify() throws Exception {
         ensureAccessToken();
-        HttpResult response = request(ME_URL, "GET", accessToken, null);
+
+        JSONObject body = baseDevicePayload();
+        body.put("_bricoAccessToken", accessToken);
+        HttpResult response = request(ME_URL, "POST", accessToken, body.toString());
+
         if (response.code == 401) {
             refreshInternal();
-            response = request(ME_URL, "GET", accessToken, null);
+            body = baseDevicePayload();
+            body.put("_bricoAccessToken", accessToken);
+            response = request(ME_URL, "POST", accessToken, body.toString());
         }
+
         requireOk(response);
         JSONObject nextUser = response.json.optJSONObject("user");
         if (nextUser == null) throw new AuthException(response.code, "invalid_user_response");
@@ -117,11 +124,16 @@ final class BricoAuthClient {
 
     synchronized HttpResult authorizedPost(String endpoint, String payloadJson) throws Exception {
         ensureAccessToken();
-        HttpResult response = request(endpoint, "POST", accessToken, payloadJson);
+
+        String body = attachAccessToken(payloadJson, accessToken);
+        HttpResult response = request(endpoint, "POST", accessToken, body);
+
         if (response.code == 401) {
             refreshInternal();
-            response = request(endpoint, "POST", accessToken, payloadJson);
+            body = attachAccessToken(payloadJson, accessToken);
+            response = request(endpoint, "POST", accessToken, body);
         }
+
         if (response.code == 401 || response.code == 403 || response.code == 428) {
             verified = false;
             if (response.json != null && "scanner_forbidden".equals(response.json.optString("error"))) {
@@ -167,6 +179,17 @@ final class BricoAuthClient {
         body.put("deviceName", deviceName);
         body.put("appVersion", BuildConfig.VERSION_NAME);
         return body;
+    }
+
+    private String attachAccessToken(String payloadJson, String token) throws Exception {
+        JSONObject body;
+        if (payloadJson == null || payloadJson.trim().isEmpty()) {
+            body = new JSONObject();
+        } else {
+            body = new JSONObject(payloadJson);
+        }
+        body.put("_bricoAccessToken", token == null ? "" : token.trim());
+        return body.toString();
     }
 
     private void applyAuthResponse(JSONObject response) throws Exception {
@@ -257,8 +280,6 @@ final class BricoAuthClient {
         if (bearer != null && !bearer.trim().isEmpty()) {
             String token = bearer.trim();
             connection.setRequestProperty("Authorization", "Bearer " + token);
-            // OVH shared hosting can strip the standard Authorization header before PHP.
-            // Send the same short-lived access token in an application-specific header as a fallback.
             connection.setRequestProperty("X-BricoLab-Access-Token", token);
         }
 
