@@ -108,6 +108,16 @@ public class MainActivityAuthTest extends MainActivityV34 {
 
         @Override
         @JavascriptInterface
+        public void setPreviewVisible(boolean visible) {
+            if (visible && !canUseScanner()) {
+                stopScannerNow();
+                return;
+            }
+            super.setPreviewVisible(visible);
+        }
+
+        @Override
+        @JavascriptInterface
         public void focus() {
             if (!canUseScanner()) return;
             super.focus();
