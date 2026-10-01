@@ -55,10 +55,7 @@ public class BricoApplication extends Application implements Application.Activit
 
     private boolean isAllowedEndpoint(URL url) {
         if (!"https".equalsIgnoreCase(url.getProtocol())) return false;
-
-        String host = url.getHost();
-        return "gahbowq.cluster129.hosting.ovh.net".equalsIgnoreCase(host)
-                || "files.bricolab.pl".equalsIgnoreCase(host);
+        return "bricolab.pl".equalsIgnoreCase(url.getHost());
     }
 
     private String readResponse(InputStream input) throws Exception {
