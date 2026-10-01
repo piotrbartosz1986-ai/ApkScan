@@ -2,6 +2,7 @@ package com.bricolab.scannerbridge;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -13,7 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * AUTH TEST application layer. It does not change the proven scanner/camera core.
+ * AUTH LATEST application layer. It does not change the proven scanner/camera core.
  * Legacy JavaScript upload calls are transparently routed through the logged-in
  * BricoLab account, so the newest scanner UI and converter extensions stay intact.
  */
@@ -36,7 +37,7 @@ public class BricoAuthApplication extends Application implements Application.Act
         if (webView == null) return;
         currentWebView = webView;
         webView.addJavascriptInterface(new UploadBridge(webView), "BricoUpload");
-        webView.addJavascriptInterface(new AuthBridge(webView), "BricoAuth");
+        webView.addJavascriptInterface(new AuthBridge(activity, webView), "BricoAuth");
     }
 
     private String mappedEndpoint(String endpoint) throws Exception {
@@ -80,6 +81,15 @@ public class BricoAuthApplication extends Application implements Application.Act
                 );
             } catch (Exception ignored) {}
         });
+    }
+
+    private void returnToLogin(Activity activity) {
+        if (activity == null || activity.isFinishing()) return;
+        Intent intent = new Intent(activity, CameraPermissionGateAuthLatestActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        activity.startActivity(intent);
+        activity.overridePendingTransition(0, 0);
+        activity.finish();
     }
 
     private void performAuthorizedUpload(WebView webView, String endpoint, String payloadJson) {
@@ -136,8 +146,12 @@ public class BricoAuthApplication extends Application implements Application.Act
     }
 
     private final class AuthBridge {
+        private final Activity activity;
         private final WebView webView;
-        AuthBridge(WebView webView) { this.webView = webView; }
+        AuthBridge(Activity activity, WebView webView) {
+            this.activity = activity;
+            this.webView = webView;
+        }
 
         @JavascriptInterface public String getState() { return authClient == null ? "{}" : authClient.stateJson(); }
         @JavascriptInterface public String getDeviceId() { return authClient == null ? "" : authClient.getDeviceId(); }
@@ -186,6 +200,7 @@ public class BricoAuthApplication extends Application implements Application.Act
                     putAuthError(result, "logout", 0, "logout_error");
                 }
                 sendAuthResult(webView, result);
+                webView.post(() -> returnToLogin(activity));
             });
         }
 
