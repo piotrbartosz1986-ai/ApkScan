@@ -37,7 +37,17 @@
   }
 
   function refresh(){var b=document.getElementById('bricoUploadBtn');if(!b)return;var a=authState();b.disabled=!canEdit();if(canEdit()){status('Wysyłanie przez konto BricoLab • '+((a.user&&a.user.login)||'zalogowano'),true)}else if(a.verified&&a.loggedIn){status('Podgląd: wysyłanie wymaga Skaner = Edycja.',null)}else{status('Najpierw zaloguj się do BricoLab.',false)}}
-  function install(){if(document.getElementById('bricoUploadBtn'))return;var exportBtn=document.getElementById('exportJsonBtn');if(!exportBtn)return;var serverBtn=document.getElementById('serverConfigBtn');if(serverBtn)serverBtn.style.display='none';var panel=exportBtn.parentElement.parentElement;var grid=exportBtn.parentElement;var b=document.createElement('button');b.id='bricoUploadBtn';b.className='primary';b.style.gridColumn='1/-1';b.textContent='WYŚLIJ DO GENERATORA';b.onclick=send;grid.appendChild(b);var s=document.createElement('div');s.id='bricoUploadStatus';s.style.cssText='font-size:8px;color:#9aa5b1;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';panel.appendChild(s);refresh()}
-  window.addEventListener('brico-auth-change',refresh);
+  function install(){
+    try{localStorage.removeItem('brico.upload.token')}catch(e){}
+    var legacy=document.getElementById('bricoUploadSettingsBox');if(legacy)legacy.style.display='none';
+    var b=document.getElementById('bricoUploadBtn');
+    if(b){b.onclick=send;b.textContent='WYŚLIJ DO GENERATORA';refresh();return}
+    var exportBtn=document.getElementById('exportJsonBtn');if(!exportBtn)return;
+    var serverBtn=document.getElementById('serverConfigBtn');if(serverBtn)serverBtn.style.display='none';
+    var panel=exportBtn.parentElement.parentElement;var grid=exportBtn.parentElement;
+    b=document.createElement('button');b.id='bricoUploadBtn';b.className='primary';b.style.gridColumn='1/-1';b.textContent='WYŚLIJ DO GENERATORA';b.onclick=send;grid.appendChild(b);
+    var s=document.createElement('div');s.id='bricoUploadStatus';s.style.cssText='font-size:8px;color:#9aa5b1;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';panel.appendChild(s);refresh();
+  }
+  window.addEventListener('brico-auth-change',function(){install();refresh()});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
