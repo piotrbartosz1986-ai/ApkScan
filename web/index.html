@@ -57,6 +57,7 @@
     var extensions=parts.slice(1).filter(Boolean).map(function(code){
       return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>';
     }).join('\n');
+    extensions += '\n<script>window.__BRICO_AUTH_LATEST_UI=true;<\/script>';
 
     if(html.indexOf('</body>')>=0) html=html.replace('</body>',extensions+'\n</body>');
     else html+=extensions;
