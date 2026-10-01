@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - diagnostic-d-old-camera-native-controls
+      - mobile-auth-v2-correct-base
 
 jobs:
   build:
@@ -13,12 +13,6 @@ jobs:
     steps:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
-
-      - name: Ustaw web i numer APK
-        run: |
-          sed -i 's#/ApkScan/main/web/#/ApkScan/diagnostic-d-old-camera-native-controls/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 110/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.11-converters-ui-fix"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +90,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-V3.3.11-converters-ui-fix-apk
+          name: BricoScanner-AUTH-LATEST-3.4.0
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
