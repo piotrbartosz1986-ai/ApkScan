@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   var SHOP='08042';
-  var LOOKUP_URL='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_product_lookup_v2.php';
+  var LOOKUP_URL='https://bricolab.pl/BricoLab/api/scanner_product_lookup_v2.php';
   var lastRequestedEan='';
   var productTimer=null;
 
