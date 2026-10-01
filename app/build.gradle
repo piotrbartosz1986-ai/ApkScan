@@ -10,8 +10,8 @@ android {
         applicationId "com.bricolab.scannerbridge.authtestlatest"
         minSdk 23
         targetSdk 36
-        versionCode 120
-        versionName "3.4.0-auth-latest"
+        versionCode 121
+        versionName "3.4.1-auth-latest"
     }
 
     buildFeatures {
