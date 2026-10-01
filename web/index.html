@@ -8,7 +8,7 @@
 <style>html,body{margin:0;background:#0b0d10;color:#f5f7fa;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.loading{padding:24px;font-weight:800}</style>
 </head>
 <body>
-<div class="loading" id="loading">Ładowanie Skanera…</div>
+<div class="loading" id="loading">Ładowanie Skanera AUTH LATEST…</div>
 <script>
 (function(){
   var stamp=Date.now();
@@ -28,8 +28,9 @@
 
   Promise.all([
     mainText('index-v24.html',true),
+    localText('auth-compat-v57.js',true),
     localText('upload-extension-v38.js',true),
-    mainText('product-data-extension.js',false),
+    localText('product-data-extension.js',true),
     mainText('scanner-v32-extension.js',false),
     mainText('scanner-v33-ui-extension.js',false),
     localText('scanner-v37-theme-extension.js',true),
