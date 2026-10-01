@@ -7,6 +7,12 @@ var NEW_PRODUCTS='https://bricolab.pl/BricoLab/api/products.php';
 var auth={verified:false,loggedIn:false,permission:'none',user:null};
 window.BricoScannerAuth=auth;
 
+/*
+ * The newest Scanner/Converters UI still contains historical calls that expect
+ * a local token value. Keep a non-secret compatibility marker internally, but
+ * never show or use it as authentication. Native BricoAuthClient signs every
+ * protected request with the logged-in BricoLab account.
+ */
 function seedLegacyCompat(){
   try{
     localStorage.setItem('brico.upload.token',AUTH_TOKEN);
@@ -14,6 +20,19 @@ function seedLegacyCompat(){
   }catch(e){}
 }
 seedLegacyCompat();
+
+function installAuthUiStyle(){
+  if(document.getElementById('bricoAuthUiStyleV58'))return;
+  var s=document.createElement('style');s.id='bricoAuthUiStyleV58';
+  s.textContent='\
+    #bricoUploadSettingsBox{display:none!important}\
+    #bricoAccountBoxV58{display:block!important}\
+    #bricoAccountBoxV58 .bricoAccountLineV58{margin:7px 0 9px;padding:9px 10px;border:1px solid var(--line,#29313a);border-radius:9px;background:var(--panel2,#0f1317);font-size:11px;font-weight:850;line-height:1.35}\
+    #bricoLogoutBtnV58{width:100%;min-height:38px;border:1px solid #6b3636!important;background:#311919!important;color:#ffb0b0!important;font-weight:950!important}\
+  ';
+  document.head.appendChild(s);
+}
+installAuthUiStyle();
 
 // Preserve the latest full XLSX -> IndexedDB database flow. The historical
 // extension still points at the old OVH scanner_products endpoint and expects a
@@ -43,6 +62,7 @@ function apply(state){
   auth.permission=String(state.permission||'none');
   auth.user=state.user||auth.user||null;
   seedLegacyCompat();
+  refreshAccountPanel();
   dispatch();
 }
 function block(message){
@@ -62,6 +82,7 @@ function unblock(){var o=document.getElementById('bricoAuthLostV57');if(o)o.styl
 
 window.onBricoAuthResult=function(result){
   result=result||{};apply(result.state||{});
+  if(result.action==='logout')return;
   if(result.ok&&auth.loggedIn){unblock();return}
   var e=String(result.error||'auth_error');
   var msg=e==='scanner_forbidden'?'Konto nie ma dostępu do modułu Skaner.':
@@ -76,21 +97,64 @@ function verify(){
   if(!(window.BricoAuth&&typeof window.BricoAuth.verify==='function'))return;
   try{window.BricoAuth.verify()}catch(e){}
 }
+function displayName(){
+  var u=auth.user||{};
+  return String(u.login||u.name||u.displayName||'BricoLab');
+}
+function permissionLabel(){
+  return auth.permission==='edit'?'EDYCJA':auth.permission==='view'?'PODGLĄD':'BRAK DOSTĘPU';
+}
+function logout(){
+  var b=document.getElementById('bricoLogoutBtnV58');
+  if(b){b.disabled=true;b.textContent='WYLOGOWYWANIE…'}
+  try{
+    if(window.BricoAuth&&typeof window.BricoAuth.logout==='function')window.BricoAuth.logout();
+    else location.reload();
+  }catch(e){location.reload()}
+}
+function ensureAccountPanel(){
+  var actions=document.querySelector('#settingsModal .settingsActions');
+  if(!actions)return null;
+  var box=document.getElementById('bricoAccountBoxV58');
+  if(!box){
+    box=document.createElement('section');
+    box.className='settingSec';box.id='bricoAccountBoxV58';
+    box.innerHTML='<div class="settingTitle">Konto BricoLab</div><div class="bricoAccountLineV58" id="bricoAccountLineV58">Sprawdzam konto…</div><button type="button" id="bricoLogoutBtnV58">WYLOGUJ</button>';
+    actions.parentNode.insertBefore(box,actions);
+    document.getElementById('bricoLogoutBtnV58').onclick=logout;
+  }
+  return box;
+}
+function refreshAccountPanel(){
+  var box=ensureAccountPanel();if(!box)return;
+  var line=document.getElementById('bricoAccountLineV58');
+  if(line)line.textContent=auth.loggedIn?(displayName()+' · '+permissionLabel()):'Brak aktywnej sesji BricoLab';
+  var b=document.getElementById('bricoLogoutBtnV58');if(b){b.disabled=!auth.loggedIn;b.textContent='WYLOGUJ'}
+}
 function hideLegacyConnection(){
   seedLegacyCompat();
-  var box=document.getElementById('bricoUploadSettingsBox');if(box)box.style.display='none';
+  installAuthUiStyle();
+  var box=document.getElementById('bricoUploadSettingsBox');if(box)box.style.setProperty('display','none','important');
   var status=document.getElementById('bricoUploadStatus');
   if(status){
-    var name=(auth.user&&(auth.user.login||auth.user.name))||'BricoLab';
-    status.textContent='Wysyłanie przez konto '+name+(auth.permission?(' • '+auth.permission.toUpperCase()):'');
+    status.textContent=auth.loggedIn?('Wysyłanie przez konto '+displayName()+' • '+permissionLabel()):'Brak aktywnej sesji BricoLab';
   }
+  refreshAccountPanel();
+}
+function watchSettings(){
+  if(!('MutationObserver' in window))return;
+  var obs=new MutationObserver(function(){hideLegacyConnection()});
+  obs.observe(document.documentElement,{childList:true,subtree:true});
 }
 function boot(){
   seedLegacyCompat();
+  installAuthUiStyle();
   if(window.BricoAuth&&typeof window.BricoAuth.getState==='function')apply(parse(window.BricoAuth.getState()));
   verify();
   hideLegacyConnection();
-  setTimeout(hideLegacyConnection,500);
+  watchSettings();
+  setTimeout(hideLegacyConnection,150);
+  setTimeout(hideLegacyConnection,700);
   setInterval(function(){verify();hideLegacyConnection()},60000);
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){verify();hideLegacyConnection()}});
   window.addEventListener('brico-auth-change',function(){setTimeout(hideLegacyConnection,0)});
