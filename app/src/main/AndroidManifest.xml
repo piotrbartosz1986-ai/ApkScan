@@ -13,9 +13,14 @@
         android:allowBackup="true"
         android:icon="@drawable/ic_brico_scanner"
         android:roundIcon="@drawable/ic_brico_scanner"
-        android:label="Skaner"
+        android:label="Skaner AUTH TEST"
         android:supportsRtl="true"
         android:theme="@style/Theme.BricoScanner">
+
+        <activity
+            android:name=".MainActivityAuthTest"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".MainActivityV34"
@@ -23,15 +28,13 @@
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".CameraPermissionGateActivity"
+            android:name=".CameraPermissionGateAuthActivity"
             android:exported="true"
             android:screenOrientation="portrait">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
     </application>
