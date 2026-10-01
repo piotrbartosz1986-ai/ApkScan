@@ -15,6 +15,9 @@ import java.lang.reflect.Field;
  */
 public class MainActivityAuthTest extends MainActivityV34 {
 
+    private static final String AUTH_WEB_BASE =
+            "https://raw.githubusercontent.com/piotrbartosz1986-ai/ApkScan/mobile-auth-v1/web/";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -26,7 +29,33 @@ public class MainActivityAuthTest extends MainActivityV34 {
         if (webView != null) {
             webView.removeJavascriptInterface("NativeScanner");
             webView.addJavascriptInterface(new AuthNativeBridge(), "NativeScanner");
+
+            // Stable scanner UI still comes from main. Once it is present, inject only the
+            // isolated AUTH layer from mobile-auth-v1. This keeps rollback trivial.
+            scheduleAuthInjection(webView, 700L);
+            scheduleAuthInjection(webView, 1400L);
+            scheduleAuthInjection(webView, 2800L);
+            scheduleAuthInjection(webView, 5000L);
         }
+    }
+
+    private void scheduleAuthInjection(WebView webView, long delayMs) {
+        webView.postDelayed(() -> {
+            String base = AUTH_WEB_BASE.replace("'", "\\'");
+            String js = "(function(){"
+                    + "if(window.__bricoAuthTestInjected===true||window.__bricoAuthTestInjected==='loading')return;"
+                    + "if(!document.getElementById('hero'))return;"
+                    + "window.__bricoAuthTestInjected='loading';"
+                    + "var b='" + base + "';var s=Date.now();"
+                    + "Promise.all(["
+                    + "fetch(b+'bricolab-auth-extension.js?_='+s,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('AUTH '+r.status);return r.text()}),"
+                    + "fetch(b+'upload-auth-extension.js?_='+s,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('UPLOAD '+r.status);return r.text()}),"
+                    + "fetch(b+'product-data-auth-extension.js?_='+s,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('PRODUCT '+r.status);return r.text()})"
+                    + "]).then(function(x){(0,eval)(x[0]);(0,eval)(x[1]);(0,eval)(x[2]);window.__bricoAuthTestInjected=true;})"
+                    + ".catch(function(e){window.__bricoAuthTestInjected=false;console.error('Brico AUTH inject',e);});"
+                    + "})();";
+            try { webView.evaluateJavascript(js, null); } catch (Exception ignored) { }
+        }, delayMs);
     }
 
     @Override
