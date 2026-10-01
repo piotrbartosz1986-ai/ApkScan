@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
  */
 final class BricoAuthClient {
 
-    private static final String BASE = "https://files.bricolab.pl/BricoLab/api/mobile-auth/";
+    private static final String BASE = "https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/mobile-auth/";
     private static final String LOGIN_URL = BASE + "login.php";
     private static final String REFRESH_URL = BASE + "refresh.php";
     private static final String ME_URL = BASE + "me.php";
@@ -210,7 +210,6 @@ final class BricoAuthClient {
         } catch (Exception ignored) {
             store.saveUserJson("");
         }
-        // A cached user is informational only. Network verification is required each app start.
         verified = false;
     }
 
@@ -243,8 +242,7 @@ final class BricoAuthClient {
         URL url = new URL(address);
         if (!"https".equalsIgnoreCase(url.getProtocol())) throw new IllegalArgumentException("HTTPS required");
         String host = url.getHost();
-        if (!("files.bricolab.pl".equalsIgnoreCase(host)
-                || "gahbowq.cluster129.hosting.ovh.net".equalsIgnoreCase(host))) {
+        if (!"gahbowq.cluster129.hosting.ovh.net".equalsIgnoreCase(host)) {
             throw new IllegalArgumentException("Niedozwolony host");
         }
 
