@@ -2,7 +2,8 @@
   'use strict';
 
   var SHOP='08042';
-  var LOOKUP_URL='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_product_lookup.php';
+  var LEGACY_LOOKUP_URL='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_product_lookup.php';
+  var AUTH_LOOKUP_URL='https://files.bricolab.pl/BricoLab/api/scanner_product_lookup_v2.php';
   var TOKEN_KEY='brico.upload.token';
   var lastRequestedEan='';
   var productTimer=null;
@@ -17,7 +18,9 @@
     return Number.isFinite(n)?n.toLocaleString('pl-PL',{maximumFractionDigits:3}):(String(v||'').trim()||'—');
   }
   function token(){return (localStorage.getItem(TOKEN_KEY)||'').trim()}
-  function hasNative(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJson==='function')}
+  function authMode(){return !!(window.BricoAuth&&window.BricoUpload&&typeof window.BricoUpload.uploadJsonAuth==='function')}
+  function permission(){return String((window.BricoScannerAuth&&window.BricoScannerAuth.permission)||'none')}
+  function hasNativeLegacy(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJson==='function')}
   function productFeedback(found){
     try{if(window.NativeScanner&&typeof window.NativeScanner.productFeedback==='function')window.NativeScanner.productFeedback(!!found)}catch(e){}
   }
@@ -60,7 +63,7 @@
       +'</div>'
       +'<div class="bricoProductFoot" id="bricoProductFoot">Baza sklepu '+SHOP+'</div>';
     hero.parentNode.insertBefore(card,hero.nextSibling);
-    setBadge(hasNative()&&token()?'BAZA: GOTOWA':'BAZA: KONFIG','warn');
+    refreshAuthBadge();
   }
 
   function setBadge(text,kind){
@@ -68,6 +71,15 @@
     el.textContent=text;el.className='bricoDbBadge'+(kind?' '+kind:'');
   }
   function foot(text){var el=document.getElementById('bricoProductFoot');if(el)el.textContent=text||''}
+  function refreshAuthBadge(){
+    if(authMode()){
+      var level=permission();
+      if(level==='view'||level==='edit'){setBadge('BAZA: GOTOWA','ok');foot('Dostęp przez konto BricoLab • '+SHOP);}
+      else{setBadge('BAZA: BRAK DOSTĘPU','err');foot('Zaloguj się do BricoLab.');}
+    }else{
+      setBadge(hasNativeLegacy()&&token()?'BAZA: GOTOWA':'BAZA: KONFIG',hasNativeLegacy()&&token()?'ok':'warn');
+    }
+  }
   function resetFields(ean){
     var n=document.getElementById('bricoProductName');if(n){n.textContent='Szukam produktu…';n.classList.remove('bricoMissing')}
     var e=document.getElementById('bricoProductEan');if(e)e.textContent=ean||'—';
@@ -96,32 +108,27 @@
     lastRequestedEan=ean;
     resetFields(ean);
 
-    if(!hasNative()){
-      setBadge('BAZA: BRAK JAVA','err');
-      foot('Brak natywnego modułu połączeń.');
+    if(authMode()){
+      if(permission()!=='view'&&permission()!=='edit'){
+        setBadge('BAZA: BRAK DOSTĘPU','err');foot('Brak uprawnienia Skaner.');return;
+      }
+      setBadge('BAZA: SZUKAM','warn');foot('Szukam '+ean+'…');
+      clearTimeout(productTimer);productTimer=setTimeout(function(){if(lastRequestedEan===ean){setBadge('BAZA: TIMEOUT','err');foot('Brak odpowiedzi bazy po 15 s.');}},15000);
+      try{window.BricoUpload.uploadJsonAuth(AUTH_LOOKUP_URL,JSON.stringify({type:'PRODUCT_LOOKUP',shop:SHOP,ean:ean,requestId:Date.now()}));}
+      catch(err){clearTimeout(productTimer);setBadge('BAZA: BŁĄD','err');foot('JAVA: '+(err&&err.message?err.message:String(err)));}
       return;
+    }
+
+    if(!hasNativeLegacy()){
+      setBadge('BAZA: BRAK JAVA','err');foot('Brak natywnego modułu połączeń.');return;
     }
     var t=token();
-    if(!t){
-      setBadge('BAZA: BRAK KLUCZA','err');
-      foot('Ustaw klucz wysyłania w ustawieniach.');
-      return;
-    }
+    if(!t){setBadge('BAZA: BRAK KLUCZA','err');foot('Ustaw klucz wysyłania w ustawieniach.');return;}
 
-    setBadge('BAZA: SZUKAM','warn');
-    foot('Szukam '+ean+'…');
-    clearTimeout(productTimer);
-    productTimer=setTimeout(function(){
-      if(lastRequestedEan===ean){setBadge('BAZA: TIMEOUT','err');foot('Brak odpowiedzi bazy po 15 s.');}
-    },15000);
-
-    try{
-      window.BricoUpload.uploadJson(LOOKUP_URL,t,JSON.stringify({type:'PRODUCT_LOOKUP',shop:SHOP,ean:ean,requestId:Date.now()}));
-    }catch(err){
-      clearTimeout(productTimer);
-      setBadge('BAZA: BŁĄD','err');
-      foot('JAVA: '+(err&&err.message?err.message:String(err)));
-    }
+    setBadge('BAZA: SZUKAM','warn');foot('Szukam '+ean+'…');
+    clearTimeout(productTimer);productTimer=setTimeout(function(){if(lastRequestedEan===ean){setBadge('BAZA: TIMEOUT','err');foot('Brak odpowiedzi bazy po 15 s.');}},15000);
+    try{window.BricoUpload.uploadJson(LEGACY_LOOKUP_URL,t,JSON.stringify({type:'PRODUCT_LOOKUP',shop:SHOP,ean:ean,requestId:Date.now()}));}
+    catch(err){clearTimeout(productTimer);setBadge('BAZA: BŁĄD','err');foot('JAVA: '+(err&&err.message?err.message:String(err)));}
   }
 
   var previousUploadResult=window.onNativeUploadResult;
@@ -136,16 +143,8 @@
         foot('Lookup: '+((server&&server.error)||(result&&result.error)||('HTTP '+((result&&result.httpCode)||'?'))));
         return;
       }
-      if(!server.found){
-        setBadge('BAZA: ONLINE','ok');
-        renderMissing(ean);
-        productFeedback(false);
-        return;
-      }
-      setBadge('BAZA: ONLINE','ok');
-      renderProduct(server.product||{});
-      productFeedback(true);
-      return;
+      if(!server.found){setBadge('BAZA: ONLINE','ok');renderMissing(ean);productFeedback(false);return;}
+      setBadge('BAZA: ONLINE','ok');renderProduct(server.product||{});productFeedback(true);return;
     }
     if(typeof previousUploadResult==='function')previousUploadResult(result);
   };
@@ -153,10 +152,10 @@
   var previousBarcode=window.onNativeBarcode;
   window.onNativeBarcode=function(payload){
     if(typeof previousBarcode==='function')previousBarcode(payload);
-    var x=payload;
-    if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={}}}
+    var x=payload;if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={}}}
     lookup(x&&x.code?x.code:'');
   };
 
+  window.addEventListener('brico-auth-change',refreshAuthBadge);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installUi);else installUi();
 })();
