@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  var ENDPOINT='https://files.bricolab.pl/BricoLab/api/scanner_upload_v5.php';
+  var ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/BricoLab/api/scanner_upload_v5.php';
   var nativeTimer=null;
 
   function authState(){return window.BricoScannerAuth||{verified:false,loggedIn:false,permission:'none',user:null}}
