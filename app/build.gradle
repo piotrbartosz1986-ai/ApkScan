@@ -7,11 +7,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId "com.bricolab.scannerbridge"
+        applicationId "com.bricolab.scannerbridge.authtest"
         minSdk 23
         targetSdk 36
-        versionCode 14
-        versionName "3.2.3-bridge"
+        versionCode 20
+        versionName "3.3.0-auth-test"
     }
 
     buildFeatures {
