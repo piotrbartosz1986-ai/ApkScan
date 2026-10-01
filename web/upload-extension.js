@@ -3,7 +3,8 @@
 
   var ENDPOINT_KEY='brico.upload.endpoint';
   var TOKEN_KEY='brico.upload.token';
-  var DEFAULT_ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/api/upload.php';
+  var LEGACY_ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/api/upload.php';
+  var AUTH_ENDPOINT='https://files.bricolab.pl/BricoLab/api/scanner_upload_v5.php';
   var nativeTimer=null;
 
   function status(msg, ok){
@@ -23,13 +24,16 @@
     }).filter(function(x){return /^(\d{8}|\d{13})$/.test(x[0]);});
   }
 
-  function getEndpoint(){return (localStorage.getItem(ENDPOINT_KEY)||DEFAULT_ENDPOINT).trim()}
+  function authMode(){return !!(window.BricoAuth&&window.BricoUpload&&typeof window.BricoUpload.uploadJsonAuth==='function')}
+  function permission(){return String((window.BricoScannerAuth&&window.BricoScannerAuth.permission)||'none')}
+  function authUser(){var u=window.BricoScannerAuth&&window.BricoScannerAuth.user;return u?(u.name||u.login||'BricoLab'):''}
+  function getLegacyEndpoint(){return (localStorage.getItem(ENDPOINT_KEY)||LEGACY_ENDPOINT).trim()}
   function getToken(){return (localStorage.getItem(TOKEN_KEY)||'').trim()}
-  function hasNativeUpload(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJson==='function')}
+  function hasNativeLegacy(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJson==='function')}
 
   function fillSettings(){
     var ep=document.getElementById('bricoEndpointInput'),tk=document.getElementById('bricoTokenInput');
-    if(ep)ep.value=getEndpoint();
+    if(ep)ep.value=getLegacyEndpoint();
     if(tk)tk.value=getToken();
   }
 
@@ -47,12 +51,12 @@
     if(!token){status('Wpisz klucz wysyłania.',false);return;}
     localStorage.setItem(ENDPOINT_KEY,endpoint);
     localStorage.setItem(TOKEN_KEY,token);
-    status('Wysyłanie gotowe • '+(hasNativeUpload()?'JAVA':'FETCH'),true);
+    status('Wysyłanie gotowe • '+(hasNativeLegacy()?'JAVA':'FETCH'),true);
   }
 
   function resetButton(delay){
     var btn=document.getElementById('bricoUploadBtn');
-    setTimeout(function(){if(!btn)return;btn.disabled=false;btn.textContent='WYŚLIJ DO GENERATORA';},delay||2200);
+    setTimeout(function(){if(!btn)return;btn.disabled=false;btn.textContent='WYŚLIJ DO GENERATORA';refreshAccessState();},delay||2200);
   }
 
   function finishSuccess(data){
@@ -79,17 +83,33 @@
   };
 
   async function send(){
-    var endpoint=getEndpoint(),token=getToken();
-    if(!token){openSettings();status('Ustaw klucz wysyłania.',false);return;}
     var items=collectVisibleItems();
     if(!items.length){status('Lista jest pusta.',false);return;}
 
+    if(authMode()){
+      if(permission()!=='edit'){
+        status(permission()==='view'?'Masz tylko Podgląd — wysyłanie list jest wyłączone.':'Brak uprawnienia do wysyłania.',false);
+        return;
+      }
+      var authBtn=document.getElementById('bricoUploadBtn');
+      authBtn.disabled=true;authBtn.textContent='WYSYŁAM…';status('Wysyłanie jako '+(authUser()||'użytkownik BricoLab')+'…',null);
+      var authPayload={type:'LABELS',device:'BricoScanner',created:new Date().toISOString(),items:items};
+      try{
+        window.BricoUpload.uploadJsonAuth(AUTH_ENDPOINT,JSON.stringify(authPayload));
+        nativeTimer=setTimeout(function(){nativeTimer=null;finishError('Brak odpowiedzi po 20 s');},20000);
+      }catch(e){finishError(e.message||String(e));}
+      return;
+    }
+
+    // Legacy APK path — untouched during the migration.
+    var endpoint=getLegacyEndpoint(),token=getToken();
+    if(!token){openSettings();status('Ustaw klucz wysyłania.',false);return;}
     var btn=document.getElementById('bricoUploadBtn');
     btn.disabled=true;btn.textContent='WYSYŁAM…';
     status('Wysyłanie '+items.length+' pozycji…',null);
 
     var payload={type:'LABELS',device:'BricoScanner',created:new Date().toISOString(),items:items};
-    if(hasNativeUpload()){
+    if(hasNativeLegacy()){
       try{
         window.BricoUpload.uploadJson(endpoint,token,JSON.stringify(payload));
         nativeTimer=setTimeout(function(){nativeTimer=null;finishError('Brak odpowiedzi JAVA po 20 s');},20000);
@@ -103,6 +123,21 @@
       if(!res.ok||!data.ok)throw new Error(data.error||('HTTP '+res.status));
       finishSuccess(data);
     }catch(e){finishError(e.message||e);}
+  }
+
+  function refreshAccessState(){
+    var btn=document.getElementById('bricoUploadBtn');if(!btn)return;
+    if(authMode()){
+      var level=permission();
+      btn.disabled=level!=='edit';
+      btn.style.display='';
+      if(level==='edit')status('BricoLab • '+(authUser()||'zalogowany')+' • Edycja',true);
+      else if(level==='view')status('BricoLab • Podgląd • wysyłanie wyłączone',null);
+      else status('BricoLab • brak uprawnienia do wysyłania',false);
+      return;
+    }
+    btn.disabled=false;
+    status(getToken()?'Wysyłanie gotowe':'Klucz wysyłania ustawisz pod ⚙',getToken()?true:null);
   }
 
   function install(){
@@ -122,23 +157,32 @@
     var s=document.createElement('div');
     s.id='bricoUploadStatus';
     s.style.cssText='font-size:8px;color:#9aa5b1;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-    s.textContent=getToken()?'Wysyłanie gotowe':'Klucz wysyłania ustawisz pod ⚙';
     panel.appendChild(s);
 
     var actions=document.querySelector('#settingsModal .settingsActions');
     if(actions){
       var sec=document.createElement('section');
       sec.className='settingSec';sec.id='bricoUploadSettingsBox';
-      sec.innerHTML=''
-        +'<div class="settingTitle">Połączenie z BricoLab</div>'
-        +'<div class="field"><label>Adres wysyłania HTTPS</label><input id="bricoEndpointInput" type="text" autocomplete="off"></div>'
-        +'<div class="field" style="margin-top:6px"><label>Klucz wysyłania / bazy</label><input id="bricoTokenInput" type="password" autocomplete="off" style="width:100%;height:35px;border-radius:8px;border:1px solid #29313a;background:#0b0f13;color:#f5f7fa;padding:5px 7px;font-size:12px"></div>'
-        +'<button id="bricoSaveSettings" type="button" class="primary" style="width:100%;margin-top:7px">ZAPISZ POŁĄCZENIE</button>';
+      if(authMode()){
+        sec.innerHTML=''
+          +'<div class="settingTitle">Połączenie z BricoLab</div>'
+          +'<div style="font-size:10px;line-height:1.45;color:#9aa5b1">Ta wersja używa zalogowanego konta BricoLab. Klucz wysyłania nie jest potrzebny i nie jest dostępny dla JavaScript.</div>';
+      }else{
+        sec.innerHTML=''
+          +'<div class="settingTitle">Połączenie z BricoLab</div>'
+          +'<div class="field"><label>Adres wysyłania HTTPS</label><input id="bricoEndpointInput" type="text" autocomplete="off"></div>'
+          +'<div class="field" style="margin-top:6px"><label>Klucz wysyłania / bazy</label><input id="bricoTokenInput" type="password" autocomplete="off" style="width:100%;height:35px;border-radius:8px;border:1px solid #29313a;background:#0b0f13;color:#f5f7fa;padding:5px 7px;font-size:12px"></div>'
+          +'<button id="bricoSaveSettings" type="button" class="primary" style="width:100%;margin-top:7px">ZAPISZ POŁĄCZENIE</button>';
+      }
       actions.parentNode.insertBefore(sec,actions);
-      fillSettings();
-      document.getElementById('bricoSaveSettings').onclick=saveSettings;
+      if(!authMode()){
+        fillSettings();
+        var save=document.getElementById('bricoSaveSettings');if(save)save.onclick=saveSettings;
+      }
     }
+    refreshAccessState();
   }
 
+  window.addEventListener('brico-auth-change',refreshAccessState);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
