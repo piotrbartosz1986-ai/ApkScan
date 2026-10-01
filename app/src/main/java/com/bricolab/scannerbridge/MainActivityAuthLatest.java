@@ -8,24 +8,21 @@ import android.webkit.WebView;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * AUTH LATEST keeps the proven MainActivityV36 camera/scanner core, but enforces
- * the converter-capable UI branch. MainActivity still contains the historical
- * main-branch loader, so this activity actively verifies the loaded document and
- * restores the AUTH/converters UI if the old loader wins a startup race.
+ * AUTH LATEST keeps the proven scanner/camera core but pins the complete scanner
+ * UI inside the APK. No runtime UI download from raw.githubusercontent.com is
+ * required. This prevents the "Ładowanie Skanera AUTH LATEST…" screen from
+ * hanging when GitHub/raw networking is slow or blocked on the phone.
  */
 public class MainActivityAuthLatest extends MainActivityV36 {
-    private static final String WEB_BASE =
-            "https://raw.githubusercontent.com/piotrbartosz1986-ai/ApkScan/mobile-auth-v2-correct-base/web/";
+    private static final String LOCAL_BASE_URL = "https://bricolab.local/";
 
-    private final ExecutorService authUiLoader = Executors.newSingleThreadExecutor();
-    private final Handler authUiHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService localUiLoader = Executors.newSingleThreadExecutor();
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private WebView authWebView;
     private boolean destroyed = false;
     private boolean loadingPinnedUi = false;
@@ -41,7 +38,7 @@ public class MainActivityAuthLatest extends MainActivityV36 {
                         value -> {
                             if (destroyed) return;
                             boolean correct = "true".equalsIgnoreCase(String.valueOf(value));
-                            if (!correct && System.currentTimeMillis() - lastPinnedLoadAt > 1400L) {
+                            if (!correct && System.currentTimeMillis() - lastPinnedLoadAt > 700L) {
                                 loadPinnedUi();
                             }
                         }
@@ -49,7 +46,7 @@ public class MainActivityAuthLatest extends MainActivityV36 {
             } catch (Exception ignored) {
                 loadPinnedUi();
             }
-            authUiHandler.postDelayed(this, 1200L);
+            uiHandler.postDelayed(this, 700L);
         }
     };
 
@@ -58,9 +55,11 @@ public class MainActivityAuthLatest extends MainActivityV36 {
         super.onCreate(savedInstanceState);
         authWebView = findViewById(R.id.webView);
 
-        // Load our intended UI immediately, then keep checking briefly/periodically.
-        loadPinnedUi();
-        authUiHandler.postDelayed(uiWatchdog, 900L);
+        // Give BricoAuthApplication a moment to install JavaScript bridges first,
+        // then load the complete bundled UI. The watchdog also replaces any late
+        // inherited remote-main UI load with this pinned AUTH/converter UI.
+        uiHandler.postDelayed(this::loadPinnedUi, 120L);
+        uiHandler.postDelayed(uiWatchdog, 650L);
     }
 
     private void loadPinnedUi() {
@@ -68,54 +67,56 @@ public class MainActivityAuthLatest extends MainActivityV36 {
         loadingPinnedUi = true;
         lastPinnedLoadAt = System.currentTimeMillis();
 
-        authUiLoader.execute(() -> {
+        localUiLoader.execute(() -> {
             try {
-                String html = fetchText(WEB_BASE + "index.html");
-                String config = fetchText(WEB_BASE + "scanner-config.json");
+                String html = readAssetText("web/index.html");
+                String config = readAssetText("web/scanner-config.json");
                 runOnUiThread(() -> {
                     if (destroyed || authWebView == null) return;
                     try { new PersistentNativeBridge().applyConfig(config); } catch (Exception ignored) {}
-                    authWebView.loadDataWithBaseURL(WEB_BASE, html, "text/html", "UTF-8", null);
+                    authWebView.loadDataWithBaseURL(
+                            LOCAL_BASE_URL,
+                            html,
+                            "text/html",
+                            "UTF-8",
+                            null
+                    );
                 });
-            } catch (Exception ignored) {
-                // The inherited cache/fallback remains available. Watchdog retries.
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (destroyed || authWebView == null) return;
+                    String message = String.valueOf(error.getMessage())
+                            .replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;");
+                    authWebView.loadData(
+                            "<html><body style='background:#0b0d10;color:#fff;font-family:sans-serif;padding:20px'>" +
+                                    "Błąd lokalnego interfejsu Skanera: " + message + "</body></html>",
+                            "text/html",
+                            "UTF-8"
+                    );
+                });
             } finally {
                 loadingPinnedUi = false;
             }
         });
     }
 
-    private String fetchText(String address) throws Exception {
-        String separator = address.contains("?") ? "&" : "?";
-        URL url = new URL(address + separator + "_=" + System.currentTimeMillis());
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setConnectTimeout(8000);
-        connection.setReadTimeout(10000);
-        connection.setUseCaches(false);
-        connection.setRequestProperty("Cache-Control", "no-cache, no-store");
-        connection.setRequestProperty("Pragma", "no-cache");
-        connection.setRequestProperty("User-Agent", "BricoScannerAuthLatest/" + BuildConfig.VERSION_NAME);
-        int code = connection.getResponseCode();
-        if (code < 200 || code >= 300) {
-            connection.disconnect();
-            throw new IllegalStateException("HTTP " + code);
-        }
-        try (InputStream input = connection.getInputStream();
+    private String readAssetText(String path) throws Exception {
+        try (InputStream input = getAssets().open(path);
              BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
             StringBuilder out = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) out.append(line).append('\n');
             return out.toString();
-        } finally {
-            connection.disconnect();
         }
     }
 
     @Override
     protected void onDestroy() {
         destroyed = true;
-        authUiHandler.removeCallbacks(uiWatchdog);
-        authUiLoader.shutdownNow();
+        uiHandler.removeCallbacks(uiWatchdog);
+        localUiLoader.shutdownNow();
         authWebView = null;
         super.onDestroy();
     }
