@@ -44,17 +44,16 @@
     text(GOOD320,'scanner-v52-converters-mode-ui.js',true),
     text(GOOD320,'scanner-v53-converters-status.js',true),
     text(THIS,'accessis-compat-v60.js',true),
-    text(AUTHBASE,'product-data-auth-extension.js',true),
-    text(THIS,'product-cache-accessis-v60.js',true),
-    text(THIS,'database-status-accessis-v61.js',true)
+    text(THIS,'database-status-accessis-v61.js',true),
+    text(THIS,'product-row-accessis-v62.js',true)
   ]).then(function(parts){
     var html=parts[0];
     html=html.replace('version:8,','version:10,');
     var extensions=parts.slice(1).filter(Boolean).map(function(code){
       return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'<\/script>';
     }).join('\n');
-    if(html.indexOf('</body>')>=0)html=html.replace('</body>',extensions+'\n<script>window.__BRICO_GOOD320_ACCESSIS_V61=true;<\/script>\n</body>');
-    else html+=extensions+'\n<script>window.__BRICO_GOOD320_ACCESSIS_V61=true;<\/script>';
+    if(html.indexOf('</body>')>=0)html=html.replace('</body>',extensions+'\n<script>window.__BRICO_GOOD320_ACCESSIS_V62=true;<\/script>\n</body>');
+    else html+=extensions+'\n<script>window.__BRICO_GOOD320_ACCESSIS_V62=true;<\/script>';
     document.open();document.write(html);document.close();
   }).catch(function(err){
     document.getElementById('loading').textContent='Błąd ładowania interfejsu: '+err.message;
