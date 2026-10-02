@@ -9,24 +9,27 @@
         android:required="true" />
 
     <application
-        android:name=".BricoApplication"
+        android:name=".BricoAuthApplication"
         android:allowBackup="true"
         android:icon="@drawable/ic_brico_scanner"
         android:roundIcon="@drawable/ic_brico_scanner"
-        android:label="Skaner PRZELICZNIKI TEST"
+        android:label="Skaner PRZELICZNIKI AUTH TEST"
         android:supportsRtl="true"
         android:theme="@style/Theme.BricoScanner">
 
         <activity
             android:name=".MainActivityV36"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".CameraPermissionGateV3311AuthActivity"
             android:exported="true"
             android:screenOrientation="portrait">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
     </application>
