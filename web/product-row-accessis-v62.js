@@ -2,7 +2,7 @@
   'use strict';
 
   var SHOP='08042';
-  var LOOKUP_URL='https://bricolab.pl/BricoLab/api/scanner_product_lookup_v2.php';
+  var LOOKUP_URL='https://bricolab.pl/BricoLab/api/scanner_product_lookup_v3.php';
   var DB_NAME='BricoScannerProductsV1';
   var PRODUCT_STORE='products';
   var pendingEan='';
@@ -32,6 +32,11 @@
     el.title=title||'';
   }
   function hasNative(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJsonAuth==='function')}
+  function devicePayload(){
+    var id='';
+    try{if(window.BricoAuth&&typeof window.BricoAuth.getDeviceId==='function')id=String(window.BricoAuth.getDeviceId()||'')}catch(e){}
+    return {deviceId:id,deviceName:'Brico Scanner Android',appVersion:'3.3.21-good320-accessis-backend-v3'};
+  }
 
   function openDb(){
     return new Promise(function(resolve){
@@ -107,7 +112,10 @@
     if(!hasNative()){badge('BAZA: BŁĄD','err','Brak transportu Accessis.');return}
     badge('BAZA: SZUKAM','warn','Szukam '+code+'…');
     try{
-      window.BricoUpload.uploadJsonAuth(LOOKUP_URL,JSON.stringify({type:'PRODUCT_LOOKUP',shop:SHOP,ean:code,requestId:now}));
+      var payload={type:'PRODUCT_LOOKUP',shop:SHOP,ean:code,requestId:now};
+      var dev=devicePayload();
+      Object.keys(dev).forEach(function(k){payload[k]=dev[k]});
+      window.BricoUpload.uploadJsonAuth(LOOKUP_URL,JSON.stringify(payload));
     }catch(err){
       badge('BAZA: BŁĄD','err',err&&err.message?err.message:String(err));
     }
