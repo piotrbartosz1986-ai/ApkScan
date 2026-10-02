@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + Accessis bez klucza
+      - name: Ustaw GOOD320 + Accessis bez klucza + poprawny status bazy
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 115/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.15-good320-accessis-no-key"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 116/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.16-good320-accessis-dbstatus"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-NOKEY-3.3.15
+          name: BricoScanner-GOOD320-ACCESSIS-DBSTATUS-3.3.16
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
