@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + Accessis + dane produktu w starym formacie
+      - name: Ustaw GOOD320 + Accessis + trwałe mosty AUTH
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 117/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.17-good320-accessis-productrow"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 118/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.18-good320-accessis-bridgefix"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-PRODUCTROW-3.3.17
+          name: BricoScanner-GOOD320-ACCESSIS-BRIDGEFIX-3.3.18
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
