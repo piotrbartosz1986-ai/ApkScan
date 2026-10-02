@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - mobile-auth-v2-correct-base
+      - verify-correct-scanner-148a-separate
 
 jobs:
   build:
@@ -74,6 +74,7 @@ jobs:
               'bundled:auth-compat-v57.js',
               'bundled:product-data-extension.js',
               'bundled:scanner-v48-converters-extension.js',
+              'bundled:scanner-v53-converters-status.js',
               'bundled:scanner-v56-converters-metadata.js',
               '__BRICO_AUTH_LATEST_UI'
           ]
@@ -167,6 +168,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-AUTH-BUNDLED-3.4.3
+          name: BricoScanner-VERIFY-148A-SEPARATE-3.4.4
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
