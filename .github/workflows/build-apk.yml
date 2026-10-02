@@ -14,59 +14,103 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw web i numer APK
+      - name: Zbuduj i zamroź poprawny UI v3.3.11 wewnątrz APK
         run: |
-          sed -i 's#/ApkScan/main/web/#/ApkScan/verify-v3311-converters-status-separate/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 111/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.12-converters-auth-db"/' app/build.gradle
+          python - <<'PY'
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          MAIN_SHA = '93ac4861dd30de618e61779177ef34af857e84e9'
+          RAW = f'https://raw.githubusercontent.com/piotrbartosz1986-ai/ApkScan/{MAIN_SHA}/web/'
+
+          def remote(name):
+              req = Request(RAW + name, headers={'User-Agent':'BricoScanner-build'})
+              with urlopen(req, timeout=30) as r:
+                  return r.read().decode('utf-8')
+
+          base = remote('index-v24.html')
+          base = base.replace('version:8,','version:10,')
+
+          sources = [
+              ('upload-extension-v38.js', Path('web/upload-extension-v38.js').read_text(encoding='utf-8')),
+              ('auth-v3311.js', Path('web/auth-v3311.js').read_text(encoding='utf-8')),
+              ('product-data-extension.js', Path('web/product-data-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v32-extension.js', remote('scanner-v32-extension.js')),
+              ('scanner-v33-ui-extension.js', remote('scanner-v33-ui-extension.js')),
+              ('scanner-v37-theme-extension.js', Path('web/scanner-v37-theme-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v38-list-extension.js', Path('web/scanner-v38-list-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v39-upload-endpoint-migration.js', Path('web/scanner-v39-upload-endpoint-migration.js').read_text(encoding='utf-8')),
+              ('scanner-v40-compact-list-extension.js', Path('web/scanner-v40-compact-list-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v41-list-refresh-extension.js', Path('web/scanner-v41-list-refresh-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v42-name-size-extension.js', Path('web/scanner-v42-name-size-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v45-native-format-sync-extension.js', Path('web/scanner-v45-native-format-sync-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v46-raw-mlkit-history-extension.js', Path('web/scanner-v46-raw-mlkit-history-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v47-manual-code-extension.js', Path('web/scanner-v47-manual-code-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v48-converters-extension.js', Path('web/scanner-v48-converters-extension.js').read_text(encoding='utf-8')),
+              ('scanner-v49-converters-units.js', Path('web/scanner-v49-converters-units.js').read_text(encoding='utf-8')),
+              ('scanner-v50-converters-product-ui.js', Path('web/scanner-v50-converters-product-ui.js').read_text(encoding='utf-8')),
+              ('scanner-v51-converters-send.js', Path('web/scanner-v51-converters-send.js').read_text(encoding='utf-8')),
+              ('scanner-v52-converters-mode-ui.js', Path('web/scanner-v52-converters-mode-ui.js').read_text(encoding='utf-8')),
+              ('scanner-v53-converters-status.js', Path('web/scanner-v53-converters-status.js').read_text(encoding='utf-8')),
+          ]
+
+          blocks=[]
+          for name, code in sources:
+              safe=code.replace('</script','<\\/script')
+              blocks.append(f'<!-- bundled:{name} -->\n<script>\n{safe}\n</script>')
+          blocks.append('<script>window.__BRICO_AUTH_LATEST_UI=true;window.__BRICO_V3311_AUTH_DB=true;</script>')
+
+          if '</body>' not in base:
+              raise SystemExit('Brak </body> w bazowym UI')
+          final_html=base.replace('</body>','\n'.join(blocks)+'\n</body>',1)
+
+          required=[
+              'bundled:auth-v3311.js',
+              'bundled:product-data-extension.js',
+              'bundled:scanner-v48-converters-extension.js',
+              'bundled:scanner-v53-converters-status.js',
+              '__BRICO_V3311_AUTH_DB'
+          ]
+          for marker in required:
+              if marker not in final_html:
+                  raise SystemExit('Brak markera: '+marker)
+
+          assets=Path('app/src/main/assets/web')
+          assets.mkdir(parents=True,exist_ok=True)
+          (assets/'index.html').write_text(final_html,encoding='utf-8')
+          (assets/'scanner-config.json').write_text(Path('web/scanner-config.json').read_text(encoding='utf-8'),encoding='utf-8')
+          print('Bundled v3.3.11 AUTH UI bytes:',len(final_html.encode('utf-8')))
+          PY
+
+      - name: Ustaw numer APK
+        run: |
+          sed -i 's/versionCode 9/versionCode 112/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.13-converters-auth-dbfix2"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          path = Path('app/src/main/java/com/bricolab/scannerbridge/ScannerEngine.java')
-          text = path.read_text(encoding='utf-8')
-
-          needle = '        if (value.isEmpty()) return null;\n\n        for (int i = 0; i < value.length(); i++) {'
-          replacement = '        if (value.isEmpty()) return null;\n\n        // ML Kit dla GS1-128 może zwrócić identyfikator AIM "]C1" przed właściwymi danymi.\n        // Prefiks nie jest częścią EAN-u produktu, więc zdejmujemy go dopiero po RAW diagnostyce.\n        if ("CODE_128".equals(sourceFormat) && value.startsWith("]C1")) {\n            value = value.substring(3);\n        }\n\n        for (int i = 0; i < value.length(); i++) {'
-          if needle not in text:
-              raise SystemExit('Nie znaleziono miejsca normalizacji GS1')
-          text = text.replace(needle, replacement, 1)
-
-          source_line = '                    boolean sourceIsRealEan = "EAN_13".equals(sourceFormat) || "EAN_8".equals(sourceFormat);'
-          gs1_lines = source_line + '\n                    boolean sourceIsGs1Code128 = "CODE_128".equals(sourceFormat) &&\n                            raw.startsWith("]C1") && code.length() == 13;'
-          if source_line not in text:
-              raise SystemExit('Nie znaleziono sourceIsRealEan')
-          text = text.replace(source_line, gs1_lines, 1)
-
-          old_if = '                    if (sourceIsRealEan && config.validateEanChecksum && !isValidEan(code, productFormat)) {'
-          new_if = '                    if ((sourceIsRealEan || sourceIsGs1Code128) &&\n                            config.validateEanChecksum && !isValidEan(code, productFormat)) {'
-          if old_if not in text:
-              raise SystemExit('Nie znaleziono warunku checksum')
-          text = text.replace(old_if, new_if, 1)
-
-          path.write_text(text, encoding='utf-8')
+          path=Path('app/src/main/java/com/bricolab/scannerbridge/ScannerEngine.java')
+          text=path.read_text(encoding='utf-8')
+          needle='        if (value.isEmpty()) return null;\n\n        for (int i = 0; i < value.length(); i++) {'
+          replacement='        if (value.isEmpty()) return null;\n\n        if ("CODE_128".equals(sourceFormat) && value.startsWith("]C1")) {\n            value = value.substring(3);\n        }\n\n        for (int i = 0; i < value.length(); i++) {'
+          if needle in text:text=text.replace(needle,replacement,1)
+          source='                    boolean sourceIsRealEan = "EAN_13".equals(sourceFormat) || "EAN_8".equals(sourceFormat);'
+          if source in text:
+              text=text.replace(source,source+'\n                    boolean sourceIsGs1Code128 = "CODE_128".equals(sourceFormat) && raw.startsWith("]C1") && code.length() == 13;',1)
+          old='                    if (sourceIsRealEan && config.validateEanChecksum && !isValidEan(code, productFormat)) {'
+          if old in text:text=text.replace(old,'                    if ((sourceIsRealEan || sourceIsGs1Code128) && config.validateEanChecksum && !isValidEan(code, productFormat)) {',1)
+          path.write_text(text,encoding='utf-8')
           PY
 
       - name: Ustaw 6 kolejnych odczytów
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          path = Path('app/src/main/java/com/bricolab/scannerbridge/ScannerConfig.java')
-          text = path.read_text(encoding='utf-8')
-
-          old_default = '    public int validConfirmReads = 3;'
-          old_forced = '            config.validConfirmReads = 3;'
-          if old_default not in text:
-              raise SystemExit('Nie znaleziono domyślnego validConfirmReads=3')
-          if old_forced not in text:
-              raise SystemExit('Nie znaleziono wymuszonego validConfirmReads=3')
-
-          text = text.replace(old_default, '    public int validConfirmReads = 6;', 1)
-          text = text.replace(old_forced, '            config.validConfirmReads = 6;', 1)
-          path.write_text(text, encoding='utf-8')
+          path=Path('app/src/main/java/com/bricolab/scannerbridge/ScannerConfig.java')
+          text=path.read_text(encoding='utf-8').replace('    public int validConfirmReads = 3;','    public int validConfirmReads = 6;',1).replace('            config.validConfirmReads = 3;','            config.validConfirmReads = 6;',1)
+          path.write_text(text,encoding='utf-8')
           PY
 
       - name: Java 17
@@ -96,6 +140,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-V3.3.12-CONVERTERS-AUTH-DB
+          name: BricoScanner-V3.3.13-CONVERTERS-AUTH-DBFIX2
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
