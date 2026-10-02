@@ -7,7 +7,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId "com.bricolab.scannerbridge"
+        applicationId "com.bricolab.scannerbridge.v3311converterstest"
         minSdk 23
         targetSdk 36
         versionCode 9
