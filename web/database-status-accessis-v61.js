@@ -17,8 +17,10 @@
     s.textContent='\
       #bricoDbBadgeV40.bricoDbStampedV61{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;line-height:1!important}\
       #bricoDbBadgeV40 .bricoDbMainV61{display:block;line-height:1!important}\
-      #bricoDbBadgeV40 .bricoDbStampV61{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;font-size:5.5px!important;line-height:1!important;font-weight:800!important;letter-spacing:0!important;opacity:.78}\
-      #bricoDbBadgeV40 .bricoDbStampV61 span{display:block;height:5.5px;line-height:5.5px;white-space:nowrap}\
+      #bricoDbBadgeV40 .bricoDbStampV61{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;line-height:1!important;font-weight:800!important;letter-spacing:0!important;opacity:.78}\
+      #bricoDbBadgeV40 .bricoDbStampV61 span{display:block;white-space:nowrap}\
+      #bricoDbBadgeV40 .bricoDbDateV61{font-size:4px!important;height:4px!important;line-height:4px!important}\
+      #bricoDbBadgeV40 .bricoDbTimeV61{font-size:5px!important;height:5px!important;line-height:5px!important}\
     ';
     document.head.appendChild(s);
   }
@@ -65,8 +67,8 @@
     el.appendChild(main);
     var stamp=document.createElement('span');
     stamp.className='bricoDbStampV61';
-    if(dbDate){var d=document.createElement('span');d.textContent=dbDate;stamp.appendChild(d)}
-    if(dbTime){var t=document.createElement('span');t.textContent=dbTime;stamp.appendChild(t)}
+    if(dbDate){var d=document.createElement('span');d.className='bricoDbDateV61';d.textContent=dbDate;stamp.appendChild(d)}
+    if(dbTime){var t=document.createElement('span');t.className='bricoDbTimeV61';t.textContent=dbTime;stamp.appendChild(t)}
     el.appendChild(stamp);
   }
 
