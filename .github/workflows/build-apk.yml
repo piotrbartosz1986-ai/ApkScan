@@ -17,8 +17,8 @@ jobs:
       - name: Ustaw web i numer APK
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/verify-v3311-converters-status-separate/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 110/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.11-converters-status-separate"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 111/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.12-converters-auth-db"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-V3.3.11-CONVERTERS-STATUS-SEPARATE
+          name: BricoScanner-V3.3.12-CONVERTERS-AUTH-DB
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
