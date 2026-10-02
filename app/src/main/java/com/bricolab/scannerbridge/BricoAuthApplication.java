@@ -58,7 +58,10 @@ public class BricoAuthApplication extends Application implements Application.Act
             return "https://bricolab.pl/BricoLab/api/scanner_converters_status_v2.php";
         }
         if (path.endsWith("/BricoLab/api/scanner_product_lookup.php") || path.endsWith("/BricoLab/api/scanner_product_lookup_v2.php") || path.endsWith("/BricoLab/api/scanner_product_lookup_v3.php")) {
-            return "https://bricolab.pl/BricoLab/api/scanner_product_lookup_v3.php";
+            // v2 is the Accessis/mobile-auth aware product endpoint. It reads
+            // _bricoAccessToken from the HTTPS JSON body, which is important on OVH
+            // where Authorization headers may be stripped before PHP sees them.
+            return "https://bricolab.pl/BricoLab/api/scanner_product_lookup_v2.php";
         }
         throw new IllegalArgumentException("Niedozwolony endpoint Skanera");
     }
@@ -128,11 +131,6 @@ public class BricoAuthApplication extends Application implements Application.Act
         private final WebView webView;
         UploadBridge(WebView webView) { this.webView = webView; }
 
-        /**
-         * Compatibility entrypoint used by the newest existing Scanner UI.
-         * The old token argument is intentionally ignored; authorization comes
-         * from the BricoLab account held by BricoAuthClient.
-         */
         @JavascriptInterface
         public void uploadJson(String endpoint, String ignoredLegacyToken, String payloadJson) {
             executor.execute(() -> performAuthorizedUpload(webView, endpoint, payloadJson));
@@ -222,8 +220,6 @@ public class BricoAuthApplication extends Application implements Application.Act
     @Override public void onActivityStopped(Activity activity) {}
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle state) {}
     @Override public void onActivityDestroyed(Activity activity) {
-        // IMPORTANT: the login/gate Activity is destroyed just after MainActivity starts.
-        // Never remove bridges from the scanner WebView when a DIFFERENT Activity closes.
         if (activity != currentWebViewActivity) return;
         WebView webView = currentWebView;
         currentWebView = null;
