@@ -58,10 +58,7 @@ public class BricoAuthApplication extends Application implements Application.Act
             return "https://bricolab.pl/BricoLab/api/scanner_converters_status_v2.php";
         }
         if (path.endsWith("/BricoLab/api/scanner_product_lookup.php") || path.endsWith("/BricoLab/api/scanner_product_lookup_v2.php") || path.endsWith("/BricoLab/api/scanner_product_lookup_v3.php")) {
-            // v2 is the Accessis/mobile-auth aware product endpoint. It reads
-            // _bricoAccessToken from the HTTPS JSON body, which is important on OVH
-            // where Authorization headers may be stripped before PHP sees them.
-            return "https://bricolab.pl/BricoLab/api/scanner_product_lookup_v2.php";
+            return "https://bricolab.pl/BricoLab/api/scanner_product_lookup_v3.php";
         }
         throw new IllegalArgumentException("Niedozwolony endpoint Skanera");
     }
