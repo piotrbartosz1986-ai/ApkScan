@@ -3,11 +3,27 @@
 
   var TOKEN_KEY='brico.upload.token';
   var ENDPOINT_KEY='brico.upload.endpoint';
+  var lastNativeState='';
 
   function seed(){
     try{
       if(localStorage.getItem(TOKEN_KEY)!=='BRICOLAB_SESSION_AUTH')localStorage.setItem(TOKEN_KEY,'BRICOLAB_SESSION_AUTH');
       if(localStorage.getItem(ENDPOINT_KEY)!=='https://bricolab.pl/BricoLab/api/scanner_upload_v5.php')localStorage.setItem(ENDPOINT_KEY,'https://bricolab.pl/BricoLab/api/scanner_upload_v5.php');
+    }catch(e){}
+  }
+
+  function pullNativeAuth(){
+    try{
+      if(!window.BricoAuth||typeof window.BricoAuth.getState!=='function')return;
+      var raw=window.BricoAuth.getState();
+      var state=typeof raw==='string'?JSON.parse(raw):raw;
+      if(!state||typeof state!=='object')return;
+      window.BricoScannerAuth=state;
+      var encoded=JSON.stringify(state);
+      if(encoded!==lastNativeState){
+        lastNativeState=encoded;
+        window.dispatchEvent(new CustomEvent('brico-auth-change',{detail:state}));
+      }
     }catch(e){}
   }
 
@@ -23,6 +39,7 @@
 
   function hideLegacySettings(){
     seed();
+    pullNativeAuth();
     var box=document.getElementById('bricoUploadSettingsBox');
     if(box&&box.style.display!=='none')box.style.setProperty('display','none','important');
     var status=document.getElementById('bricoUploadStatus');
@@ -38,6 +55,7 @@
 
   function boot(){
     seed();
+    pullNativeAuth();
     hideLegacySettings();
     if('MutationObserver' in window){
       var queued=false;
@@ -48,6 +66,7 @@
       }).observe(document.documentElement,{childList:true,subtree:true});
     }
     window.addEventListener('brico-auth-change',hideLegacySettings);
+    setInterval(function(){pullNativeAuth();hideLegacySettings()},1000);
     setTimeout(hideLegacySettings,100);
     setTimeout(hideLegacySettings,600);
     setTimeout(hideLegacySettings,1600);
