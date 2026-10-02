@@ -44,8 +44,8 @@
     style.textContent='\
       #exportPanel{position:relative!important;z-index:5!important;overflow:visible!important}\
       #bricoUploadStatus{display:none!important}\
-      #bricoAccountArea{display:block!important;position:relative!important;z-index:50!important;margin-top:6px!important;pointer-events:auto!important}\
-      #bricoAccountButton{display:flex!important;align-items:center;justify-content:center;gap:5px;width:100%!important;min-height:34px!important;padding:7px 10px!important;border:1px solid rgba(54,210,127,.40)!important;border-radius:9px!important;background:rgba(54,210,127,.10)!important;color:#36d27f!important;font-size:10.5px!important;font-weight:900!important;line-height:1.15!important;cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:52!important;-webkit-tap-highlight-color:rgba(54,210,127,.18)!important}\
+      #bricoAccountArea{display:block!important;position:relative!important;z-index:50!important;margin-top:8px!important;pointer-events:auto!important}\
+      #bricoAccountButton{display:flex!important;align-items:center;justify-content:center;gap:5px;width:100%!important;min-height:36px!important;padding:8px 10px!important;border:1px solid rgba(54,210,127,.40)!important;border-radius:9px!important;background:rgba(54,210,127,.10)!important;color:#36d27f!important;font-size:10.5px!important;font-weight:900!important;line-height:1.15!important;cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:52!important;-webkit-tap-highlight-color:rgba(54,210,127,.18)!important}\
       #bricoAccountArrow{font-size:8px;opacity:.82;pointer-events:none}\
       #bricoAccountLogoutMenu{display:none!important;margin-top:5px!important;position:relative!important;z-index:53!important;pointer-events:auto!important}\
       #bricoAccountLogoutMenu.show{display:block!important}\
@@ -56,44 +56,34 @@
 
   function ensureAccountUi(){
     ensureStyle();
-    var legacy=document.getElementById('bricoUploadStatus');
-    if(!legacy)return null;
 
     var area=document.getElementById('bricoAccountArea');
-    if(!area){
-      area=document.createElement('div');
-      area.id='bricoAccountArea';
-      area.innerHTML=''
-        +'<button type="button" id="bricoAccountButton" aria-expanded="false">'
-        +'<span id="bricoAccountLabel"></span><span id="bricoAccountArrow">▾</span>'
-        +'</button>'
-        +'<div id="bricoAccountLogoutMenu"><button type="button" id="bricoAccountLogoutBtn">WYLOGUJ</button></div>';
-      legacy.insertAdjacentElement('afterend',area);
+    if(area)return area;
 
-      var accountBtn=document.getElementById('bricoAccountButton');
-      var logoutBtn=document.getElementById('bricoAccountLogoutBtn');
+    var host=document.getElementById('exportPanel');
+    if(!host)return null;
 
-      accountBtn.onclick=function(e){
-        if(e){e.preventDefault();e.stopPropagation()}
-        toggleAccount();
-        return false;
-      };
-      accountBtn.ontouchend=function(e){
-        if(e){e.preventDefault();e.stopPropagation()}
-        toggleAccount();
-        return false;
-      };
-      logoutBtn.onclick=function(e){
-        if(e){e.preventDefault();e.stopPropagation()}
-        doLogout();
-        return false;
-      };
-      logoutBtn.ontouchend=function(e){
-        if(e){e.preventDefault();e.stopPropagation()}
-        doLogout();
-        return false;
-      };
-    }
+    area=document.createElement('div');
+    area.id='bricoAccountArea';
+    area.innerHTML=''
+      +'<button type="button" id="bricoAccountButton" aria-expanded="false">'
+      +'<span id="bricoAccountLabel"></span><span id="bricoAccountArrow">▾</span>'
+      +'</button>'
+      +'<div id="bricoAccountLogoutMenu"><button type="button" id="bricoAccountLogoutBtn">WYLOGUJ</button></div>';
+    host.appendChild(area);
+
+    var accountBtn=document.getElementById('bricoAccountButton');
+    var logoutBtn=document.getElementById('bricoAccountLogoutBtn');
+
+    accountBtn.addEventListener('click',function(e){
+      e.preventDefault();e.stopPropagation();
+      toggleAccount();
+    },true);
+    logoutBtn.addEventListener('click',function(e){
+      e.preventDefault();e.stopPropagation();
+      doLogout();
+    },true);
+
     return area;
   }
 
