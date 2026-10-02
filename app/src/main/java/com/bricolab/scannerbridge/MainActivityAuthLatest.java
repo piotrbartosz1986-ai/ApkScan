@@ -13,7 +13,8 @@ import java.util.concurrent.Executors;
 
 /**
  * Exact build-320 scanner UI/camera core with BricoLab auth enforced on every entry.
- * This prevents Android task restoration after an APK update from bypassing the login gate.
+ * Accessis JavaScript bridges are installed immediately after the proven scanner
+ * activity has created its WebView, before the remote UI fetch can complete.
  */
 public class MainActivityAuthLatest extends MainActivityV36 {
     private final Handler authHandler = new Handler(Looper.getMainLooper());
@@ -41,6 +42,13 @@ public class MainActivityAuthLatest extends MainActivityV36 {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         authWebView = findViewById(R.id.webView);
+
+        // IMPORTANT: wire the only BricoUpload/BricoAuth bridge explicitly now.
+        // The base activity has already created the WebView, while its remote UI
+        // is still being fetched asynchronously. This avoids "Brak transportu".
+        BricoAuthApplication app = (BricoAuthApplication) getApplication();
+        app.installBridges(this);
+
         ensureVerifiedSession();
         authHandler.postDelayed(authPulse, 250L);
     }
