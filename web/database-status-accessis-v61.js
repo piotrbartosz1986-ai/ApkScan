@@ -27,7 +27,7 @@
     el.textContent=text;
     el.className=kind||'';
     el.title=title||'';
-    if(text==='BAZA: ONLINE')enhanceOnlineBadge();
+    if(text==='BAZA: ONLINE'||text==='BAZA: GOTOWA')enhanceStatusBadge();
   }
 
   function parseDbStamp(info){
@@ -47,10 +47,13 @@
     }
   }
 
-  function enhanceOnlineBadge(){
+  function enhanceStatusBadge(){
     var el=badge();if(!el)return;
     var plain=String(el.textContent||'').replace(/\s+/g,' ').trim();
-    if(plain.indexOf('BAZA: ONLINE')!==0)return;
+    var mainText='';
+    if(plain.indexOf('BAZA: ONLINE')===0)mainText='BAZA: ONLINE';
+    else if(plain.indexOf('BAZA: GOTOWA')===0)mainText='BAZA: GOTOWA';
+    else return;
     if(!dbDate&&!dbTime)return;
     if(el.querySelector('.bricoDbMainV61'))return;
     ensureBadgeStyle();
@@ -58,7 +61,7 @@
     el.textContent='';
     var main=document.createElement('span');
     main.className='bricoDbMainV61';
-    main.textContent='BAZA: ONLINE';
+    main.textContent=mainText;
     el.appendChild(main);
     var stamp=document.createElement('span');
     stamp.className='bricoDbStampV61';
@@ -95,7 +98,7 @@
       set('BAZA: GOTOWA','ok','Baza dostępna przez zalogowane konto BricoLab / Accessis.');
       return;
     }
-    if(/BAZA:\s*ONLINE/i.test(t))enhanceOnlineBadge();
+    if(/BAZA:\s*(ONLINE|GOTOWA)/i.test(t))enhanceStatusBadge();
   }
 
   var previousResult=window.onNativeUploadResult;
@@ -151,10 +154,10 @@
       new MutationObserver(function(){
         if(queued)return;
         queued=true;
-        setTimeout(function(){queued=false;normalizeLegacyStatus();ensureDebug();enhanceOnlineBadge()},0);
+        setTimeout(function(){queued=false;normalizeLegacyStatus();ensureDebug();enhanceStatusBadge()},0);
       }).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
     }
-    setInterval(function(){normalizeLegacyStatus();enhanceOnlineBadge()},500);
+    setInterval(function(){normalizeLegacyStatus();enhanceStatusBadge()},500);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
