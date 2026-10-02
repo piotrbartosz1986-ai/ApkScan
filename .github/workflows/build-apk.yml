@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - verify-v3311-converters-status-separate
+      - good320-auth-transport-only
 
 jobs:
   build:
@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw web i numer APK
+      - name: Zamroź dokładny UI z poprawnego builda 320 i ustaw numer APK
         run: |
-          sed -i 's#/ApkScan/main/web/#/ApkScan/verify-v3311-converters-status-separate/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 110/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.11-converters-status-separate"/' app/build.gradle
+          sed -i 's#/ApkScan/main/web/#/ApkScan/9be77d85f249481f8f2c6098c79fa55e408c0b43/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
+          sed -i 's/versionCode 9/versionCode 114/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.14-good320-auth-only"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-V3.3.11-CONVERTERS-STATUS-SEPARATE
+          name: BricoScanner-GOOD320-AUTH-ONLY-3.3.14
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
