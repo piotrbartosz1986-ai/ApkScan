@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + jeden bridge Accessis
+      - name: Ustaw GOOD320 + jeden bridge Accessis wcześnie
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 122/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.22-good320-accessis-single-bridge"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 123/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.23-good320-accessis-early-bridge"/' app/build.gradle
 
           # Usuń dwa stare bridge'e BricoUpload. Zostaje wyłącznie
           # BricoAuthApplication.UploadBridge używający sesji Accessis.
@@ -35,6 +35,11 @@ jobs:
             echo 'Stary V25 BricoUploadBridge nadal rejestruje BricoUpload' >&2
             exit 1
           fi
+
+          grep -q 'app.installBridges(this);' app/src/main/java/com/bricolab/scannerbridge/MainActivityAuthLatest.java || {
+            echo 'Brak wczesnej rejestracji bridge Accessis' >&2
+            exit 1
+          }
 
       - name: Sprawdź backend PHP v3
         run: php -l server/scanner_product_lookup_v3.php
@@ -115,6 +120,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-SINGLE-BRIDGE-3.3.22
+          name: BricoScanner-GOOD320-ACCESSIS-EARLY-BRIDGE-3.3.23
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
