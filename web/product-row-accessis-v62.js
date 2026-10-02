@@ -2,7 +2,7 @@
   'use strict';
 
   var SHOP='08042';
-  var LOOKUP_URL='https://bricolab.pl/BricoLab/api/scanner_product_lookup_v3.php';
+  var LOOKUP_URL='https://bricolab.pl/BricoLab/api/scanner_product_lookup_v2.php';
   var DB_NAME='BricoScannerProductsV1';
   var PRODUCT_STORE='products';
   var pendingEan='';
