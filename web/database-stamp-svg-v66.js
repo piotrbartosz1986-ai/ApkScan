@@ -12,8 +12,9 @@
     var s=document.createElement('style');
     s.id='bricoDbStampSvgStyleV66';
     s.textContent='\
-      #bricoDbBadgeV40 .bricoDbStampV61{display:block!important;width:36px!important;height:10px!important;min-width:36px!important;line-height:0!important;overflow:visible!important;opacity:.82!important}\
-      #bricoDbBadgeV40 .bricoDbStampSvgV66{display:block!important;width:36px!important;height:10px!important;overflow:visible!important}\
+      #bricoDbBadgeV40.bricoDbStampedV61{gap:2px!important}\
+      #bricoDbBadgeV40 .bricoDbStampV61{display:block!important;width:31px!important;height:10px!important;min-width:31px!important;line-height:0!important;overflow:visible!important;opacity:.82!important}\
+      #bricoDbBadgeV40 .bricoDbStampSvgV66{display:block!important;width:31px!important;height:10px!important;overflow:visible!important;transform:translateY(-2px)!important}\
     ';
     document.head.appendChild(s);
   }
@@ -30,9 +31,9 @@
     if(!date&&!time)return;
 
     stamp.innerHTML=''
-      +'<svg class="bricoDbStampSvgV66" viewBox="0 0 36 10" width="36" height="10" aria-hidden="true">'
-      +(date?'<text x="36" y="3.3" text-anchor="end" fill="currentColor" font-family="system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif" font-size="4" font-weight="800">'+esc(date)+'</text>':'')
-      +(time?'<text x="36" y="9.3" text-anchor="end" fill="currentColor" font-family="system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif" font-size="6" font-weight="800">'+esc(time)+'</text>':'')
+      +'<svg class="bricoDbStampSvgV66" viewBox="0 0 31 10" width="31" height="10" aria-hidden="true">'
+      +(date?'<text x="0" y="3.8" text-anchor="start" fill="currentColor" font-family="system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif" font-size="5" font-weight="800">'+esc(date)+'</text>':'')
+      +(time?'<text x="0" y="9.3" text-anchor="start" fill="currentColor" font-family="system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif" font-size="6" font-weight="800">'+esc(time)+'</text>':'')
       +'</svg>';
   }
 
