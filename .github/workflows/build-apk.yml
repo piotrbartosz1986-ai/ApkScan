@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + Accessis + trwałe mosty AUTH
+      - name: Ustaw GOOD320 + Accessis + wymuszona sesja
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 118/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.18-good320-accessis-bridgefix"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 119/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.19-good320-accessis-sessionguard"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -29,7 +29,7 @@ jobs:
           text = path.read_text(encoding='utf-8')
 
           needle = '        if (value.isEmpty()) return null;\n\n        for (int i = 0; i < value.length(); i++) {'
-          replacement = '        if (value.isEmpty()) return null;\n\n        // ML Kit dla GS1-128 może zwrócić identyfikator AIM "]C1" przed właściwymi danymi.\n        // Prefiks nie jest częścią EAN-u produktu, więc zdejmujemy go dopiero po RAW diagnostyce.\n        if ("CODE_128".equals(sourceFormat) && value.startsWith("]C1")) {\n            value = value.substring(3);\n        }\n\n        for (int i = 0; i < value.length(); i++) {'
+          replacement = '        if (value.isEmpty()) return null;\n\n        if ("CODE_128".equals(sourceFormat) && value.startsWith("]C1")) {\n            value = value.substring(3);\n        }\n\n        for (int i = 0; i < value.length(); i++) {'
           if needle not in text:
               raise SystemExit('Nie znaleziono miejsca normalizacji GS1')
           text = text.replace(needle, replacement, 1)
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-BRIDGEFIX-3.3.18
+          name: BricoScanner-GOOD320-ACCESSIS-SESSIONGUARD-3.3.19
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
