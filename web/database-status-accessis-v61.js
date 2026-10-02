@@ -19,8 +19,8 @@
       #bricoDbBadgeV40 .bricoDbMainV61{display:block;line-height:1!important}\
       #bricoDbBadgeV40 .bricoDbStampV61{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;line-height:1!important;font-weight:800!important;letter-spacing:0!important;opacity:.78}\
       #bricoDbBadgeV40 .bricoDbStampV61 span{display:block;white-space:nowrap}\
-      #bricoDbBadgeV40 .bricoDbDateV61{font-size:4px!important;height:4px!important;line-height:4px!important}\
-      #bricoDbBadgeV40 .bricoDbTimeV61{font-size:5px!important;height:5px!important;line-height:5px!important}\
+      #bricoDbBadgeV40 .bricoDbDateV61{font-size:2px!important;height:2px!important;line-height:2px!important}\
+      #bricoDbBadgeV40 .bricoDbTimeV61{font-size:4px!important;height:4px!important;line-height:4px!important}\
     ';
     document.head.appendChild(s);
   }
