@@ -33,9 +33,22 @@ public class BricoAuthApplication extends Application implements Application.Act
 
     BricoAuthClient authClient() { return authClient; }
 
-    private void installBridges(Activity activity) {
+    /**
+     * Must be called by MainActivityAuthLatest immediately after super.onCreate().
+     * addJavascriptInterface has to happen before the remote scanner UI is loaded,
+     * otherwise JavaScript may not see BricoUpload until a later navigation/reload.
+     */
+    void installBridges(Activity activity) {
         WebView webView = activity.findViewById(R.id.webView);
         if (webView == null) return;
+
+        // If this exact activity/webview was already wired explicitly, do not remove
+        // and re-add the interfaces later from ActivityLifecycleCallbacks.
+        if (activity == currentWebViewActivity && webView == currentWebView) return;
+
+        try { webView.removeJavascriptInterface("BricoUpload"); } catch (Exception ignored) {}
+        try { webView.removeJavascriptInterface("BricoAuth"); } catch (Exception ignored) {}
+
         currentWebView = webView;
         currentWebViewActivity = activity;
         webView.addJavascriptInterface(new UploadBridge(webView), "BricoUpload");
