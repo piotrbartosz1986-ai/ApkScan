@@ -14,11 +14,11 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + Accessis + wymuszona sesja
+      - name: Ustaw GOOD320 + Accessis + lookup v2
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 119/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.19-good320-accessis-sessionguard"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 120/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.20-good320-accessis-lookup-v2"/' app/build.gradle
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +96,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-SESSIONGUARD-3.3.19
+          name: BricoScanner-GOOD320-ACCESSIS-LOOKUPV2-3.3.20
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
