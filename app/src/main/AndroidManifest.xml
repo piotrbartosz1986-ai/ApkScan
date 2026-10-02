@@ -9,7 +9,7 @@
         android:required="true" />
 
     <application
-        android:name=".BricoApplication"
+        android:name=".BricoAuthApplication"
         android:allowBackup="true"
         android:icon="@drawable/ic_brico_scanner"
         android:roundIcon="@drawable/ic_brico_scanner"
@@ -18,15 +18,18 @@
         android:theme="@style/Theme.BricoScanner">
 
         <activity
-            android:name=".MainActivityV36"
+            android:name=".MainActivityAuthLatest"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".CameraPermissionGateAuthLatestActivity"
             android:exported="true"
             android:screenOrientation="portrait">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
     </application>
