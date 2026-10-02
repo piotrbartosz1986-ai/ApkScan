@@ -6,8 +6,8 @@
 
   function seed(){
     try{
-      localStorage.setItem(TOKEN_KEY,'BRICOLAB_SESSION_AUTH');
-      localStorage.setItem(ENDPOINT_KEY,'https://bricolab.pl/BricoLab/api/scanner_upload_v5.php');
+      if(localStorage.getItem(TOKEN_KEY)!=='BRICOLAB_SESSION_AUTH')localStorage.setItem(TOKEN_KEY,'BRICOLAB_SESSION_AUTH');
+      if(localStorage.getItem(ENDPOINT_KEY)!=='https://bricolab.pl/BricoLab/api/scanner_upload_v5.php')localStorage.setItem(ENDPOINT_KEY,'https://bricolab.pl/BricoLab/api/scanner_upload_v5.php');
     }catch(e){}
   }
 
@@ -24,18 +24,28 @@
   function hideLegacySettings(){
     seed();
     var box=document.getElementById('bricoUploadSettingsBox');
-    if(box)box.style.setProperty('display','none','important');
+    if(box&&box.style.display!=='none')box.style.setProperty('display','none','important');
     var status=document.getElementById('bricoUploadStatus');
-    if(status){status.textContent=label();status.style.color=(auth().verified&&auth().loggedIn)?'#36d27f':'#9aa5b1'}
+    if(status){
+      var next=label();
+      if(status.textContent!==next)status.textContent=next;
+      var color=(auth().verified&&auth().loggedIn)?'#36d27f':'#9aa5b1';
+      if(status.style.color!==color)status.style.color=color;
+    }
     var serverBtn=document.getElementById('serverConfigBtn');
-    if(serverBtn)serverBtn.style.display='none';
+    if(serverBtn&&serverBtn.style.display!=='none')serverBtn.style.display='none';
   }
 
   function boot(){
     seed();
     hideLegacySettings();
     if('MutationObserver' in window){
-      new MutationObserver(hideLegacySettings).observe(document.documentElement,{childList:true,subtree:true});
+      var queued=false;
+      new MutationObserver(function(){
+        if(queued)return;
+        queued=true;
+        setTimeout(function(){queued=false;hideLegacySettings()},0);
+      }).observe(document.documentElement,{childList:true,subtree:true});
     }
     window.addEventListener('brico-auth-change',hideLegacySettings);
     setTimeout(hideLegacySettings,100);
