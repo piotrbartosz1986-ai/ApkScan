@@ -7,6 +7,9 @@
   var PRODUCT_STORE='products';
   var pendingEan='';
   var pendingAt=0;
+  var lastAttempt={};
+  var lastSuccess={};
+  var rowScanTimer=null;
 
   function clean(v){return String(v==null?'':v).trim()}
   function ean(v){return clean(v).replace(/\D/g,'')}
@@ -31,11 +34,22 @@
     el.className=kind||'';
     el.title=title||'';
   }
+  function shortError(result,server){
+    var code=result&&result.httpCode?String(result.httpCode):'';
+    var err=clean((server&&server.error)||(result&&result.error)||(result&&result.body)||'nieznany_blad');
+    err=err.replace(/^HTTP\s+\d+\s*[•:-]?\s*/i,'').replace(/\s+/g,' ');
+    if(err.length>32)err=err.slice(0,32)+'…';
+    return (code?code+' ':'')+err;
+  }
+  function showDbError(result,server){
+    var detail=shortError(result,server);
+    badge('BAZA: BŁĄD · '+detail,'err',detail);
+  }
   function hasNative(){return !!(window.BricoUpload&&typeof window.BricoUpload.uploadJsonAuth==='function')}
   function devicePayload(){
     var id='';
     try{if(window.BricoAuth&&typeof window.BricoAuth.getDeviceId==='function')id=String(window.BricoAuth.getDeviceId()||'')}catch(e){}
-    return {deviceId:id,deviceName:'Brico Scanner Android',appVersion:'3.3.21-good320-accessis-backend-v3'};
+    return {deviceId:id,deviceName:'Brico Scanner Android',appVersion:'3.3.22-good320-accessis-single-bridge'};
   }
 
   function openDb(){
@@ -77,6 +91,7 @@
   }
   function renderFound(code,product){
     code=ean(code);if(!code||!product)return;
+    lastSuccess[code]=Date.now();
     matchingRows(code).forEach(function(row){
       row.setAttribute('data-brico-ean-v40',code);
       row.classList.remove('bricoStaleDataV40');
@@ -93,6 +108,7 @@
   }
   function renderMissing(code){
     code=ean(code);if(!code)return;
+    lastSuccess[code]=Date.now();
     matchingRows(code).forEach(function(row){
       row.setAttribute('data-brico-ean-v40',code);
       var codeEl=row.querySelector('.code');
@@ -104,12 +120,14 @@
     badge('BAZA: ONLINE','ok','Połączenie działa; produktu nie znaleziono w bazie.');
   }
 
-  function lookup(code){
+  function lookup(code,force){
     code=ean(code);if(!/^(\d{8}|\d{13})$/.test(code))return;
     var now=Date.now();
-    if(pendingEan===code&&now-pendingAt<800)return;
+    if(!force&&lastSuccess[code]&&now-lastSuccess[code]<60000)return;
+    if(!force&&lastAttempt[code]&&now-lastAttempt[code]<3000)return;
+    lastAttempt[code]=now;
     pendingEan=code;pendingAt=now;
-    if(!hasNative()){badge('BAZA: BŁĄD','err','Brak transportu Accessis.');return}
+    if(!hasNative()){badge('BAZA: BŁĄD · brak transportu','err','Brak BricoUpload.uploadJsonAuth');return}
     badge('BAZA: SZUKAM','warn','Szukam '+code+'…');
     try{
       var payload={type:'PRODUCT_LOOKUP',shop:SHOP,ean:code,requestId:now};
@@ -117,8 +135,24 @@
       Object.keys(dev).forEach(function(k){payload[k]=dev[k]});
       window.BricoUpload.uploadJsonAuth(LOOKUP_URL,JSON.stringify(payload));
     }catch(err){
-      badge('BAZA: BŁĄD','err',err&&err.message?err.message:String(err));
+      badge('BAZA: BŁĄD · JS','err',err&&err.message?err.message:String(err));
     }
+  }
+
+  function scanRowsForLookup(){
+    rowScanTimer=null;
+    var rows=[].slice.call(document.querySelectorAll('#scanList .item'));
+    rows.forEach(function(row){
+      var saved=ean(row.getAttribute('data-brico-ean-v40')||'');
+      var codeEl=row.querySelector('.code');
+      var fromText=ean(codeEl&&codeEl.textContent);
+      var code=/^(\d{8}|\d{13})$/.test(saved)?saved:(/^(\d{8}|\d{13})$/.test(fromText)?fromText:'');
+      if(code)lookup(code,false);
+    });
+  }
+  function scheduleRowScan(){
+    if(rowScanTimer)return;
+    rowScanTimer=setTimeout(scanRowsForLookup,120);
   }
 
   var previousBarcode=window.onNativeBarcode;
@@ -127,7 +161,8 @@
     var x=payload;
     if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={code:x}}}
     var code=ean(x&&x.code?x.code:'');
-    if(code)setTimeout(function(){lookup(code)},0);
+    if(code)setTimeout(function(){lookup(code,true)},0);
+    scheduleRowScan();
   };
 
   var previousResult=window.onNativeUploadResult;
@@ -137,17 +172,35 @@
     }
     try{
       var server=result&&result.server?result.server:null;
-      if(!server||server.kind!=='PRODUCT_LOOKUP')return;
-      var code=ean(server.ean||pendingEan||'');
-      if(!result.ok||!server.ok){
-        badge('BAZA: BŁĄD','err',(server&&server.error)||(result&&result.error)||('HTTP '+((result&&result.httpCode)||'?')));
+      if(server&&server.kind==='PRODUCT_META')return;
+
+      if(server&&server.kind==='PRODUCT_LOOKUP'){
+        var code=ean(server.ean||pendingEan||'');
+        if(!result.ok||!server.ok){showDbError(result,server);return}
+        if(!server.found||!server.product){renderMissing(code);return}
+        cacheProduct(server.product,code);
+        renderFound(code,server.product);
         return;
       }
-      if(!server.found||!server.product){renderMissing(code);return}
-      cacheProduct(server.product,code);
-      renderFound(code,server.product);
+
+      // Auth/backend failures can be returned before the endpoint adds kind/ean.
+      // If they happen directly after a product request, expose the real error.
+      if(pendingEan&&Date.now()-pendingAt<12000&&result&&result.ok===false){
+        showDbError(result,server);
+      }
     }catch(e){
-      badge('BAZA: BŁĄD','err',e&&e.message?e.message:String(e));
+      badge('BAZA: BŁĄD · UI','err',e&&e.message?e.message:String(e));
     }
   };
+
+  function boot(){
+    var list=document.getElementById('scanList');
+    if(list&&'MutationObserver' in window){
+      new MutationObserver(scheduleRowScan).observe(list,{childList:true,subtree:true,characterData:true});
+    }
+    scheduleRowScan();
+    setTimeout(scheduleRowScan,500);
+    setTimeout(scheduleRowScan,1500);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
