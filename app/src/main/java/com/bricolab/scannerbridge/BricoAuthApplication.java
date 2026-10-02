@@ -22,6 +22,7 @@ public class BricoAuthApplication extends Application implements Application.Act
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private BricoAuthClient authClient;
     private WebView currentWebView;
+    private Activity currentWebViewActivity;
 
     @Override
     public void onCreate() {
@@ -36,6 +37,7 @@ public class BricoAuthApplication extends Application implements Application.Act
         WebView webView = activity.findViewById(R.id.webView);
         if (webView == null) return;
         currentWebView = webView;
+        currentWebViewActivity = activity;
         webView.addJavascriptInterface(new UploadBridge(webView), "BricoUpload");
         webView.addJavascriptInterface(new AuthBridge(activity, webView), "BricoAuth");
     }
@@ -220,10 +222,15 @@ public class BricoAuthApplication extends Application implements Application.Act
     @Override public void onActivityStopped(Activity activity) {}
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle state) {}
     @Override public void onActivityDestroyed(Activity activity) {
-        if (currentWebView != null) {
-            try { currentWebView.removeJavascriptInterface("BricoUpload"); } catch (Exception ignored) {}
-            try { currentWebView.removeJavascriptInterface("BricoAuth"); } catch (Exception ignored) {}
-            currentWebView = null;
+        // IMPORTANT: the login/gate Activity is destroyed just after MainActivity starts.
+        // Never remove bridges from the scanner WebView when a DIFFERENT Activity closes.
+        if (activity != currentWebViewActivity) return;
+        WebView webView = currentWebView;
+        currentWebView = null;
+        currentWebViewActivity = null;
+        if (webView != null) {
+            try { webView.removeJavascriptInterface("BricoUpload"); } catch (Exception ignored) {}
+            try { webView.removeJavascriptInterface("BricoAuth"); } catch (Exception ignored) {}
         }
     }
 
