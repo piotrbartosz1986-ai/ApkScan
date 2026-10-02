@@ -32,7 +32,7 @@
     var a=auth();
     if(a.verified&&a.loggedIn){
       var who=(a.user&&(a.user.login||a.user.name||a.user.displayName))||'BricoLab';
-      return 'Połączono jako '+who+' • '+(a.permission==='edit'?'EDYCJA':'PODGLĄD');
+      return 'Połączono jako '+who+' • WYLOGUJ';
     }
     return 'Połączenie przez konto BricoLab / Accessis';
   }
@@ -45,9 +45,13 @@
       #bricoAccountArea{display:block!important;width:100%!important;position:relative!important;z-index:80!important;margin:2px 0 8px!important;pointer-events:auto!important}\
       #bricoAccountButton{display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;width:100%!important;min-height:38px!important;padding:8px 10px!important;border:1px solid rgba(54,210,127,.40)!important;border-radius:10px!important;background:rgba(54,210,127,.10)!important;color:#36d27f!important;font-size:10.5px!important;font-weight:900!important;line-height:1.15!important;cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:81!important;-webkit-tap-highlight-color:rgba(54,210,127,.18)!important}\
       #bricoAccountArrow{font-size:8px!important;opacity:.82!important;pointer-events:none!important}\
-      #bricoAccountLogoutMenu{display:none!important;margin-top:5px!important;position:relative!important;z-index:82!important;pointer-events:auto!important}\
+      #bricoAccountLogoutMenu{display:none!important;margin-top:5px!important;padding:8px!important;position:relative!important;z-index:82!important;pointer-events:auto!important;border:1px solid rgba(255,105,105,.30)!important;border-radius:10px!important;background:rgba(255,105,105,.06)!important}\
       #bricoAccountLogoutMenu.show{display:block!important}\
-      #bricoAccountLogoutBtn{display:block!important;width:100%!important;min-height:38px!important;border:1px solid rgba(255,105,105,.40)!important;border-radius:10px!important;background:rgba(255,105,105,.10)!important;color:#ff6969!important;font-size:10.5px!important;font-weight:950!important;pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:83!important}\
+      #bricoAccountLogoutQuestion{margin-bottom:7px!important;text-align:center!important;color:#ff6969!important;font-size:10.5px!important;font-weight:950!important}\
+      #bricoAccountLogoutActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}\
+      #bricoAccountLogoutYes,#bricoAccountLogoutNo{display:block!important;width:100%!important;min-height:38px!important;border-radius:9px!important;font-size:10.5px!important;font-weight:950!important;pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:83!important}\
+      #bricoAccountLogoutYes{border:1px solid rgba(255,105,105,.45)!important;background:rgba(255,105,105,.12)!important;color:#ff6969!important}\
+      #bricoAccountLogoutNo{border:1px solid var(--line)!important;background:var(--panel2)!important;color:var(--text)!important}\
     ';
     document.head.appendChild(style);
   }
@@ -67,7 +71,12 @@
         +'<button type="button" id="bricoAccountButton" aria-expanded="false">'
         +'<span id="bricoAccountLabel"></span><span id="bricoAccountArrow">▾</span>'
         +'</button>'
-        +'<div id="bricoAccountLogoutMenu"><button type="button" id="bricoAccountLogoutBtn">WYLOGUJ</button></div>';
+        +'<div id="bricoAccountLogoutMenu">'
+        +'<div id="bricoAccountLogoutQuestion">Wylogować?</div>'
+        +'<div id="bricoAccountLogoutActions">'
+        +'<button type="button" id="bricoAccountLogoutYes">TAK</button>'
+        +'<button type="button" id="bricoAccountLogoutNo">NIE</button>'
+        +'</div></div>';
     }
 
     if(area.parentElement!==wrap || area.previousElementSibling!==exportPanel){
@@ -75,7 +84,8 @@
     }
 
     var accountBtn=document.getElementById('bricoAccountButton');
-    var logoutBtn=document.getElementById('bricoAccountLogoutBtn');
+    var yesBtn=document.getElementById('bricoAccountLogoutYes');
+    var noBtn=document.getElementById('bricoAccountLogoutNo');
 
     if(accountBtn&&!accountBtn.dataset.bricoBound){
       accountBtn.dataset.bricoBound='1';
@@ -83,21 +93,21 @@
         e.preventDefault();e.stopPropagation();
         toggleAccount();
       };
-      accountBtn.ontouchend=function(e){
+    }
+
+    if(yesBtn&&!yesBtn.dataset.bricoBound){
+      yesBtn.dataset.bricoBound='1';
+      yesBtn.onclick=function(e){
         e.preventDefault();e.stopPropagation();
-        toggleAccount();
+        doLogout();
       };
     }
 
-    if(logoutBtn&&!logoutBtn.dataset.bricoBound){
-      logoutBtn.dataset.bricoBound='1';
-      logoutBtn.onclick=function(e){
+    if(noBtn&&!noBtn.dataset.bricoBound){
+      noBtn.dataset.bricoBound='1';
+      noBtn.onclick=function(e){
         e.preventDefault();e.stopPropagation();
-        doLogout();
-      };
-      logoutBtn.ontouchend=function(e){
-        e.preventDefault();e.stopPropagation();
-        doLogout();
+        closeAccount();
       };
     }
 
@@ -120,15 +130,24 @@
     if(arrow)arrow.textContent=open?'▴':'▾';
   }
 
+  function closeAccount(){
+    var menu=document.getElementById('bricoAccountLogoutMenu');
+    var btn=document.getElementById('bricoAccountButton');
+    var arrow=document.getElementById('bricoAccountArrow');
+    if(menu)menu.classList.remove('show');
+    if(btn)btn.setAttribute('aria-expanded','false');
+    if(arrow)arrow.textContent='▾';
+  }
+
   function doLogout(){
-    var btn=document.getElementById('bricoAccountLogoutBtn');
+    var btn=document.getElementById('bricoAccountLogoutYes');
     if(!window.BricoAuth||typeof window.BricoAuth.logout!=='function'){
-      if(btn)btn.textContent='BRAK MODUŁU WYLOGOWANIA';
+      if(btn)btn.textContent='BŁĄD';
       return;
     }
     if(btn){btn.disabled=true;btn.textContent='WYLOGOWUJĘ…'}
     try{window.BricoAuth.logout()}catch(err){
-      if(btn){btn.disabled=false;btn.textContent='WYLOGUJ'}
+      if(btn){btn.disabled=false;btn.textContent='TAK'}
     }
   }
 
@@ -148,14 +167,7 @@
     if(lbl&&lbl.textContent!==label())lbl.textContent=label();
 
     var connected=!!(auth().verified&&auth().loggedIn);
-    var menu=document.getElementById('bricoAccountLogoutMenu');
-    var btn=document.getElementById('bricoAccountButton');
-    var arrow=document.getElementById('bricoAccountArrow');
-    if(!connected&&menu){
-      menu.classList.remove('show');
-      if(btn)btn.setAttribute('aria-expanded','false');
-      if(arrow)arrow.textContent='▾';
-    }
+    if(!connected)closeAccount();
   }
 
   function boot(){
