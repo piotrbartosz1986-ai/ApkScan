@@ -14,11 +14,31 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + Accessis + lookup v2
+      - name: Ustaw GOOD320 + Accessis + backend v3
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 120/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.20-good320-accessis-lookup-v2"/' app/build.gradle
+          sed -i 's/versionCode 9/versionCode 121/' app/build.gradle
+          sed -i 's/versionName "2.7-bridge"/versionName "3.3.21-good320-accessis-backend-v3"/' app/build.gradle
+
+      - name: Sprawdź backend PHP v3
+        run: php -l server/scanner_product_lookup_v3.php
+
+      - name: Przygotuj paczkę OVH
+        run: |
+          mkdir -p ovh-package/BricoLab/api
+          cp server/scanner_product_lookup_v3.php ovh-package/BricoLab/api/scanner_product_lookup_v3.php
+          cat > ovh-package/README-OVH.txt <<'EOF'
+          BRICOLAB · SKANER · PRODUCT LOOKUP V3
+
+          Wgraj przez FileZilla:
+          BricoLab/api/scanner_product_lookup_v3.php
+
+          do:
+          /www/BricoLab/api/scanner_product_lookup_v3.php
+
+          NIE usuwaj i NIE nadpisuj scanner_product_lookup_v2.php.
+          V3 korzysta wyłącznie z sesji BricoLab / Accessis i weryfikuje ją przez mobile-auth/me.php.
+          EOF
 
       - name: Obsłuż GS1 Code128 z prefiksem ]C1
         run: |
@@ -96,6 +116,13 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-LOOKUPV2-3.3.20
+          name: BricoScanner-GOOD320-ACCESSIS-BACKENDV3-3.3.21
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Zapisz paczkę OVH
+        uses: actions/upload-artifact@v4
+        with:
+          name: BricoLab-OVH-SCANNER-PRODUCT-LOOKUP-V3
+          path: ovh-package/**
           if-no-files-found: error
