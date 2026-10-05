@@ -118,6 +118,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoLab-Scan-3.3.27-SEPARATE-CORRECT-SENT
+          name: BricoLab-Scan-3.3.28-SEPARATE-STABLE-DB-BADGE
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
