@@ -13,7 +13,7 @@
         android:allowBackup="true"
         android:icon="@drawable/ic_brico_scanner"
         android:roundIcon="@drawable/ic_brico_scanner"
-        android:label="Skaner PRZELICZNIKI TEST"
+        android:label="BricoLab Scan"
         android:supportsRtl="true"
         android:theme="@style/Theme.BricoScanner">
 
