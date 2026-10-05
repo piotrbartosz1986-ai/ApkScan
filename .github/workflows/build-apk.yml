@@ -118,6 +118,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoLab-Scan-3.3.25-SEPARATE-NO-SENT-BUTTON
+          name: BricoLab-Scan-3.3.26-SEPARATE-SENT-CONFIRMATION
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
