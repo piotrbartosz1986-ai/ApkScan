@@ -10,8 +10,8 @@ android {
         applicationId "com.bricolab.bricolabscan"
         minSdk 23
         targetSdk 36
-        versionCode 125
-        versionName "3.3.25-bricolab-scan"
+        versionCode 126
+        versionName "3.3.26-bricolab-scan"
     }
 
     buildFeatures {
