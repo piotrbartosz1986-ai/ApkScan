@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - good320-auth-transport-only
+      - bricolab-scan-separate
 
 jobs:
   build:
@@ -14,11 +14,9 @@ jobs:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
-      - name: Ustaw GOOD320 + jeden bridge Accessis wcześnie
+      - name: Zachowaj GOOD320 + jeden bridge Accessis wcześnie
         run: |
           sed -i 's#/ApkScan/main/web/#/ApkScan/good320-auth-transport-only/web/#g' app/src/main/java/com/bricolab/scannerbridge/MainActivity.java
-          sed -i 's/versionCode 9/versionCode 123/' app/build.gradle
-          sed -i 's/versionName "2.7-bridge"/versionName "3.3.23-good320-accessis-early-bridge"/' app/build.gradle
 
           # Usuń dwa stare bridge'e BricoUpload. Zostaje wyłącznie
           # BricoAuthApplication.UploadBridge używający sesji Accessis.
@@ -120,6 +118,6 @@ jobs:
       - name: Zapisz APK
         uses: actions/upload-artifact@v4
         with:
-          name: BricoScanner-GOOD320-ACCESSIS-EARLY-BRIDGE-3.3.23
+          name: BricoLab-Scan-3.3.24-SEPARATE
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
