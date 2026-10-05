@@ -122,9 +122,15 @@
   }
 
   window.onNativeUploadResult=function(result){
+    var data=result&&result.server?result.server:{};
+    var kind=data&&data.kind?String(data.kind):'';
+
+    // PRODUCT_META / PRODUCT_LOOKUP to tylko odświeżanie/sprawdzanie bazy.
+    // Nie wolno wtedy zmieniać przycisku wysyłania listy na „WYSŁANO”.
+    if(kind==='PRODUCT_META'||kind==='PRODUCT_LOOKUP')return;
+
     if(nativeTimer){clearTimeout(nativeTimer);nativeTimer=null;}
     try{
-      var data=result&&result.server?result.server:{};
       if(!result||!result.ok||!data.ok){
         var detail=(result&&result.error)||(data&&data.error)||(result&&result.body)||('HTTP '+((result&&result.httpCode)||'?'));
         if(result&&result.httpCode&&String(detail).indexOf('HTTP ')!==0) detail='HTTP '+result.httpCode+' • '+detail;
@@ -198,8 +204,6 @@
     }
   }
 
-  // Delegowany handler jest odporny na późniejsze przebudowanie zawartości ustawień
-  // przez inne rozszerzenia UI w WebView.
   document.addEventListener('click',function(e){
     var target=e.target;
     var btn=target&&target.closest?target.closest('#bricoSaveSettings'):null;
