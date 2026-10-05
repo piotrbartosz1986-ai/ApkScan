@@ -122,6 +122,7 @@
           var metaErr=(server&&server.error)||(result&&result.error)||('HTTP '+((result&&result.httpCode)||'?'));
           set('BAZA: BŁĄD','err',String(metaErr));
         }
+        return;
       }
 
       if(kind==='PRODUCT_LOOKUP'){
@@ -134,6 +135,7 @@
           var lookupErr=(server&&server.error)||(result&&result.error)||('HTTP '+((result&&result.httpCode)||'?'));
           set('BAZA: BŁĄD','err',String(lookupErr));
         }
+        return;
       }
 
       if(!server && result && result.ok===false){
@@ -143,23 +145,24 @@
     }catch(e){
       debugShow('UI',{httpCode:'?',error:e&&e.message?e.message:String(e)},null);
     }
-    setTimeout(normalizeLegacyStatus,0);
   };
 
   function boot(){
     ensureBadgeStyle();
     ensureDebug();
     normalizeLegacyStatus();
-    window.addEventListener('brico-auth-change',function(){setTimeout(normalizeLegacyStatus,0)});
-    if('MutationObserver' in window){
-      var queued=false;
-      new MutationObserver(function(){
-        if(queued)return;
-        queued=true;
-        setTimeout(function(){queued=false;normalizeLegacyStatus();ensureDebug();enhanceStatusBadge()},0);
-      }).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
-    }
-    setInterval(function(){normalizeLegacyStatus();enhanceStatusBadge()},500);
+
+    // Status bazy jest teraz event-driven: żadnego pollingu co 500 ms.
+    // Zmieniamy go wyłącznie po realnej odpowiedzi PRODUCT_META / PRODUCT_LOOKUP
+    // albo po zmianie stanu logowania Accessis.
+    window.addEventListener('brico-auth-change',function(){
+      setTimeout(function(){ensureDebug();normalizeLegacyStatus()},0);
+      setTimeout(function(){normalizeLegacyStatus()},250);
+    });
+
+    // Jednorazowe wyrównanie po złożeniu interfejsu WebView.
+    setTimeout(function(){ensureDebug();normalizeLegacyStatus()},120);
+    setTimeout(function(){normalizeLegacyStatus()},900);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
