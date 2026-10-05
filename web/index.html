@@ -16,7 +16,6 @@
   var GOOD320=repo+'9be77d85f249481f8f2c6098c79fa55e408c0b43/web/';
   var AUTHBASE=repo+'93ac4861dd30de618e61779177ef34af857e84e9/web/';
   var THIS=repo+'good320-auth-transport-only/web/';
-  var PATCH=repo+'bricolab-scan-separate/web/';
 
   function text(base,name,required){
     return fetch(base+name+'?_='+stamp,{cache:'no-store'})
@@ -49,8 +48,7 @@
     text(THIS,'accessis-compat-v60.js',true),
     text(THIS,'database-status-accessis-v61.js',true),
     text(THIS,'database-stamp-svg-v66.js',true),
-    text(THIS,'product-row-accessis-v62.js',true),
-    text(PATCH,'upload-button-no-sent-v67.js',true)
+    text(THIS,'product-row-accessis-v62.js',true)
   ]).then(function(parts){
     var html=parts[0];
     html=html.replace('version:8,','version:10,');
