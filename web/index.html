@@ -15,7 +15,7 @@
   var repo='https://raw.githubusercontent.com/piotrbartosz1986-ai/ApkScan/';
   var GOOD320=repo+'9be77d85f249481f8f2c6098c79fa55e408c0b43/web/';
   var AUTHBASE=repo+'93ac4861dd30de618e61779177ef34af857e84e9/web/';
-  var THIS=repo+'good320-auth-transport-only/web/';
+  var THIS=repo+'bricolab-scan-separate/web/';
 
   function text(base,name,required){
     return fetch(base+name+'?_='+stamp,{cache:'no-store'})
@@ -25,7 +25,7 @@
 
   Promise.all([
     text(AUTHBASE,'index-v24.html',true),
-    text(GOOD320,'upload-extension-v38.js',true),
+    text(THIS,'upload-extension-v38.js',true),
     text(AUTHBASE,'scanner-v32-extension.js',false),
     text(AUTHBASE,'scanner-v33-ui-extension.js',false),
     text(GOOD320,'scanner-v37-theme-extension.js',true),
