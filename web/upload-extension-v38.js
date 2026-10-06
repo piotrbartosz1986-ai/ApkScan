@@ -6,6 +6,7 @@
   var LIST_NAME_KEY='brico.list.name';
   var DEFAULT_ENDPOINT='https://gahbowq.cluster129.hosting.ovh.net/api/upload.php';
   var nativeTimer=null;
+  var nativeListSendPending=false;
 
   function status(msg, ok){
     var e=document.getElementById('bricoUploadStatus');
@@ -122,14 +123,15 @@
   }
 
   window.onNativeUploadResult=function(result){
-    var data=result&&result.server?result.server:{};
-    var kind=data&&data.kind?String(data.kind):'';
+    // Ten handler obsługuje WYŁĄCZNIE odpowiedź na prawdziwe wysyłanie listy.
+    // Lookup/meta bazy oraz ich błędy transportu (np. DNS/UnknownHost) nie mogą
+    // nigdy zmieniać dolnego przycisku WYŚLIJ.
+    if(!nativeListSendPending)return;
 
-    // PRODUCT_META / PRODUCT_LOOKUP to tylko odświeżanie/sprawdzanie bazy.
-    // Nie wolno wtedy zmieniać przycisku wysyłania listy na „WYSŁANO”.
-    if(kind==='PRODUCT_META'||kind==='PRODUCT_LOOKUP')return;
-
+    nativeListSendPending=false;
     if(nativeTimer){clearTimeout(nativeTimer);nativeTimer=null;}
+
+    var data=result&&result.server?result.server:{};
     try{
       if(!result||!result.ok||!data.ok){
         var detail=(result&&result.error)||(data&&data.error)||(result&&result.body)||('HTTP '+((result&&result.httpCode)||'?'));
@@ -155,9 +157,18 @@
     var payload={type:'LABELS',device:'BricoScanner',created:new Date().toISOString(),name:listName,listName:listName,items:items,_auth:token};
     if(hasNativeUpload()){
       try{
+        nativeListSendPending=true;
         window.BricoUpload.uploadJson(endpoint,token,JSON.stringify(payload));
-        nativeTimer=setTimeout(function(){nativeTimer=null;finishError('Brak odpowiedzi JAVA po 20 s');},20000);
-      }catch(e){finishError(e.message||String(e));}
+        nativeTimer=setTimeout(function(){
+          nativeTimer=null;
+          if(!nativeListSendPending)return;
+          nativeListSendPending=false;
+          finishError('Brak odpowiedzi JAVA po 20 s');
+        },20000);
+      }catch(e){
+        nativeListSendPending=false;
+        finishError(e.message||String(e));
+      }
       return;
     }
 
