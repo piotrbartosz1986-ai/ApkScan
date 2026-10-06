@@ -40,15 +40,15 @@
   function boot(){
     ensureStyle();
     convert();
-    if('MutationObserver' in window){
+    var badge=document.getElementById('bricoDbBadgeV40');
+    if(badge&&'MutationObserver' in window){
       var queued=false;
       new MutationObserver(function(){
         if(queued)return;
         queued=true;
         setTimeout(function(){queued=false;convert()},0);
-      }).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+      }).observe(badge,{childList:true,subtree:true,characterData:true});
     }
-    setInterval(convert,500);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
